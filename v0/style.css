@@ -1,0 +1,34 @@
+body {
+  text-align: center;
+}
+
+#board-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+#board {
+  position: relative;
+  font-size: 60px;
+  line-height: 1ch;
+  font-family: Monaco, Consolas;
+}
+
+pre#ground {
+  margin: 0;
+}
+
+#path {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-left: 0;
+  margin: 0;
+}
+
+#path > li {
+  position: absolute;
+  list-style: none;
+}

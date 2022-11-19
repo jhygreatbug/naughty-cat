@@ -1,0 +1,13 @@
+{
+  "name": "naughty-cat",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:jhygreatbug/naughty-cat.git",
+  "author": "jhygreatbug <jhygreatbug@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "sass": "^1.56.1",
+    "tsc": "^2.0.4",
+    "typescript": "^4.9.3"
+  }
+}
