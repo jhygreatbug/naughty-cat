@@ -24,7 +24,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 var PARAMETERS = {
     blockSize: 40,
-    ballSpeed: 1000
+    ballSpeed: 600
 };
 var Item;
 (function (Item) {
@@ -147,7 +147,6 @@ var Path = /** @class */ (function () {
 }());
 var Stage = /** @class */ (function () {
     function Stage(params) {
-        var _this = this;
         this.stop = true;
         var mapRows = params.map.trim().split('\n');
         var mapHeight = mapRows.length;
@@ -190,10 +189,8 @@ var Stage = /** @class */ (function () {
         this.path.catPoint.coord = __spreadArray([], this.cat.coord, true);
         this.correct = correct;
         if (this.correct) {
-            setTimeout(function () {
-                _this.stop = false;
-                Stage.draw(_this);
-            }, 1000);
+            this.stop = false;
+            Stage.draw(this);
         }
     }
     Stage.prototype.destroy = function () {
@@ -232,12 +229,8 @@ var Stage = /** @class */ (function () {
         var $element = document.querySelector('#stages .scene.elements');
         $element.innerHTML = '';
         $element.innerHTML += "<div class=\"block i-goal\" style=\"grid-row: ".concat(stage.goal.coord[0] + 1, "; grid-column: ").concat(stage.goal.coord[1] + 1, ";\"></div>");
-        $element.innerHTML += "<div class=\"block i-cat\" data-status=\"".concat(stage.cat.status, "\" style=\"grid-row: ").concat(stage.cat.coord[0] + 1, "; grid-column: ").concat(stage.cat.coord[1] + 1, ";\"></div>");
         $element.innerHTML += "<div class=\"block i-ball\" data-status=\"".concat(stage.ball.status, "\" style=\"grid-row: ").concat(stage.ball.coord[0] + 1, "; grid-column: ").concat(stage.ball.coord[1] + 1, ";\"></div>");
-    };
-    Stage.checkStage = function (stage) {
-        // todo: 关卡合法性检查
-        return true;
+        $element.innerHTML += "<div class=\"block i-cat\" data-status=\"".concat(stage.cat.status, "\" style=\"grid-row: ").concat(stage.cat.coord[0] + 1, "; grid-column: ").concat(stage.cat.coord[1] + 1, ";\"></div>");
     };
     Stage.prototype.moveCat = function (code) {
         if (this.stop) {
@@ -299,6 +292,8 @@ var Stage = /** @class */ (function () {
         }
         var target = this.map.data[tx][ty];
         if (target === Item['space']) {
+            this.ball.coord = [tx, ty];
+            this.path.moveBall(this.ball.coord, code);
             this.stop = true;
             alert('毛线球掉进坑里了！');
             return;
@@ -380,8 +375,13 @@ var PageStages = /** @class */ (function (_super) {
         _this.handleExitClick = function () {
             router.go('home');
         };
-        document.querySelector('#stages .exit').addEventListener('click', _this.handleExitClick);
-        document.querySelector('#stages .stage-list').innerHTML = '<wired-item value="0" role="option" class="wired-rendered stage-item">No. one</wired-item>';
+        document.querySelector('#stages .exit').addEventListener('click', _this.handleExitClick = function () {
+            router.go('home');
+        });
+        document.querySelector('#stages .reset').addEventListener('click', _this.handleResetClick = function () {
+            controller.start("\n        ############\n        #....C.....#\n        #....B.....#  \n        #..........#\n        #..........#\n        #..........#  \n        #.........G#\n        #xx........#\n        #xx........#\n        ############\n      ");
+        });
+        // document.querySelector('#stages .stage-list').innerHTML = '<wired-item value="0" role="option" class="wired-rendered stage-item">No. one</wired-item>'
         controller.start("\n      ############\n      #....C.....#\n      #....B.....#  \n      #..........#\n      #..........#\n      #..........#  \n      #.........G#\n      #xx........#\n      #xx........#\n      ############\n    ");
         return _this;
     }

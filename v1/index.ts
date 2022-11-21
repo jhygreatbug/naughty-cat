@@ -1,6 +1,6 @@
 const PARAMETERS = {
   blockSize: 40,
-  ballSpeed: 1000,
+  ballSpeed: 600,
 };
 
 enum Item {
@@ -217,10 +217,8 @@ class Stage {
 
     this.correct = correct;
     if (this.correct) {
-      setTimeout(() => {
-        this.stop = false;
-        Stage.draw(this);
-      }, 1000)
+      this.stop = false;
+      Stage.draw(this);
     }
   }
 
@@ -262,13 +260,8 @@ class Stage {
     const $element = document.querySelector('#stages .scene.elements') as HTMLElement;
     $element.innerHTML = '';
     $element.innerHTML += `<div class="block i-goal" style="grid-row: ${stage.goal.coord[0] + 1}; grid-column: ${stage.goal.coord[1] + 1};"></div>`
-    $element.innerHTML += `<div class="block i-cat" data-status="${stage.cat.status}" style="grid-row: ${stage.cat.coord[0] + 1}; grid-column: ${stage.cat.coord[1] + 1};"></div>`
     $element.innerHTML += `<div class="block i-ball" data-status="${stage.ball.status}" style="grid-row: ${stage.ball.coord[0] + 1}; grid-column: ${stage.ball.coord[1] + 1};"></div>`
-  }
-
-  private static checkStage(stage: Stage) {
-    // todo: 关卡合法性检查
-    return true;
+    $element.innerHTML += `<div class="block i-cat" data-status="${stage.cat.status}" style="grid-row: ${stage.cat.coord[0] + 1}; grid-column: ${stage.cat.coord[1] + 1};"></div>`
   }
 
   moveCat(code: typeof moveCode[number]) {
@@ -338,6 +331,8 @@ class Stage {
     const target = this.map.data[tx][ty];
 
     if (target === Item['space']) {
+      this.ball.coord = [tx, ty];
+      this.path.moveBall(this.ball.coord, code);
       this.stop = true;
       alert('毛线球掉进坑里了！');
       return;
@@ -419,14 +414,32 @@ class PageHome extends Page {
 
 class PageStages extends Page {
   handleExitClick: () => void;
+  handleResetClick: () => void;
   constructor() {
     super();
+    
     this.handleExitClick = () => {
       router.go('home');
     }
-    document.querySelector('#stages .exit').addEventListener('click', this.handleExitClick);
+    document.querySelector('#stages .exit').addEventListener('click', this.handleExitClick = () => {
+      router.go('home');
+    });
+    document.querySelector('#stages .reset').addEventListener('click', this.handleResetClick = () => {
+      controller.start(`
+        ############
+        #....C.....#
+        #....B.....#  
+        #..........#
+        #..........#
+        #..........#  
+        #.........G#
+        #xx........#
+        #xx........#
+        ############
+      `);
+    });
 
-    document.querySelector('#stages .stage-list').innerHTML = '<wired-item value="0" role="option" class="wired-rendered stage-item">No. one</wired-item>'
+    // document.querySelector('#stages .stage-list').innerHTML = '<wired-item value="0" role="option" class="wired-rendered stage-item">No. one</wired-item>'
 
     controller.start(`
       ############
