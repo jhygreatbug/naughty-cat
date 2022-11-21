@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="unicode">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css?family=Gloria+Hallelujah&display=swap"
+        rel="stylesheet"
+    />
+    <script type="module" src="../dist/wired-elements.js"></script>
+</head>
+<body>
+    <main id="home" style="display: none">
+        <h1>Naughty Cat</h1>
+        <div class="home-options">
+            <wired-button class="home-option enter">Enter Game</wired-button>
+            <!-- <wired-button id="enter" class="home-option">Enter Game</wired-button> -->
+        </div>
+    </main>
+    <main id="stages" style="display: none">
+        <p>
+            <wired-button class="exit">exit</wired-button>
+        </p>
+        <p>
+            <wired-button class="reset">reset (R)</wired-button>
+        </p>
+        <p>
+            <wired-listbox selected="0" role="listbox" tabindex="0" class="wired-rendered stage-list">
+                <!-- <wired-item value="0" role="option" class="wired-rendered stage-item">No. one</wired-item>
+                <wired-item value="1" role="option" class="wired-rendered stage-item">No. two</wired-item>
+                <wired-item value="2" role="option" class="wired-rendered stage-item">No. three</wired-item>
+                <wired-item value="3" role="option" class="wired-rendered stage-item">No. four</wired-item> -->
+            </wired-listbox>
+        </p>
+        <div class="stage">
+            <div class="scene ground"></div>
+            <div class="scene path"></div>
+            <div class="scene elements"></div>
+        </div>
+    </main>
+    <script src="./index.js"></script>
+</body>
+</html>

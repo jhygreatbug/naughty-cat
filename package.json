@@ -5,9 +5,19 @@
   "repository": "git@github.com:jhygreatbug/naughty-cat.git",
   "author": "jhygreatbug <jhygreatbug@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "build-wired-elements": "yarn run webpack --entry ./lib/wired-elements.js && mv dist/main.js dist/wired-elements.js && rm dist/main.js.LICENSE.txt"
+  },
+  "resolutions": {
+    "roughjs": "4.4"
+  },
   "dependencies": {
+    "phaser": "^3.55.2",
     "sass": "^1.56.1",
     "tsc": "^2.0.4",
-    "typescript": "^4.9.3"
+    "typescript": "^4.9.3",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.0",
+    "wired-elements": "^3.0.0-rc.6"
   }
 }
