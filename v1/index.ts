@@ -479,4 +479,4 @@ const router = ((routeConfig: Record<string, typeof Page>) => {
   'stages': PageStages,
 })
 
-router.go('stages');
+router.go('home');

@@ -408,4 +408,4 @@ var router = (function (routeConfig) {
     'home': PageHome,
     'stages': PageStages
 });
-router.go('stages');
+router.go('home');
