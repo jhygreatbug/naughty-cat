@@ -22,6 +22,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     }
     return to.concat(ar || Array.prototype.slice.call(from));
 };
+var _this = this;
 var PARAMETERS = {
     blockSize: 40,
     ballSpeed: 800
@@ -340,21 +341,29 @@ var controller = (function () {
 var Page = /** @class */ (function () {
     function Page() {
     }
-    Page.prototype.destroy = function () { };
+    Page.prototype.destroy = function () {
+    };
     return Page;
 }());
 var PageHome = /** @class */ (function (_super) {
     __extends(PageHome, _super);
     function PageHome() {
         var _this = _super.call(this) || this;
+        _this.bgmId = 'bgm01-title';
         _this.handleEnterClick = function () {
             router.go('stages');
         };
         document.querySelector('#home .enter').addEventListener('click', _this.handleEnterClick);
+        sound.getPromise(_this.bgmId).then(function () {
+            if (router.getCurrentPage() === _this) {
+                createjs.Sound.play(_this.bgmId, { loop: true });
+            }
+        });
         return _this;
     }
     PageHome.prototype.destroy = function () {
         document.querySelector('#home .enter').removeEventListener('click', this.handleEnterClick);
+        createjs.Sound.stop(this.bgmId);
     };
     return PageHome;
 }(Page));
@@ -362,6 +371,7 @@ var PageStages = /** @class */ (function (_super) {
     __extends(PageStages, _super);
     function PageStages() {
         var _this = _super.call(this) || this;
+        _this.bgmId = 'bgm02-stage';
         _this.currentStage = 0;
         _this.handleExitClick = function () {
             router.go('home');
@@ -387,6 +397,11 @@ var PageStages = /** @class */ (function (_super) {
             }
         });
         _this.loadStage(0);
+        sound.getPromise(_this.bgmId).then(function () {
+            if (router.getCurrentPage() === _this) {
+                createjs.Sound.play(_this.bgmId, { loop: true });
+            }
+        });
         return _this;
     }
     PageStages.prototype.destroy = function () {
@@ -394,6 +409,7 @@ var PageStages = /** @class */ (function (_super) {
         document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
         document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
         document.removeEventListener('keyup', this.handleKeyup);
+        createjs.Sound.stop(this.bgmId);
     };
     PageStages.prototype.loadStage = function (stageIndex) {
         this.currentStage = stageIndex;
@@ -451,6 +467,9 @@ var router = (function (routeConfig) {
     var currentPage = null;
     var currentPageName = '';
     return {
+        getCurrentPage: function () {
+            return currentPage;
+        },
         go: function (pageName) {
             if (currentPage) {
                 currentPage.destroy();
@@ -465,4 +484,39 @@ var router = (function (routeConfig) {
     'home': PageHome,
     'stages': PageStages
 });
+var sound = (function () {
+    var resolves = {};
+    var promises = {};
+    var resolveCount = 0;
+    var sounds = [
+        {
+            src: 'bgm01-title.mp3',
+            id: 'bgm01-title'
+        },
+        {
+            src: 'bgm02-stage.mp3',
+            id: 'bgm02-stage'
+        },
+    ];
+    sounds.forEach(function (_a) {
+        var id = _a.id;
+        promises[id] = new Promise(function (resolve) {
+            resolves[id] = resolve;
+            resolveCount++;
+        });
+    });
+    createjs.Sound.registerSounds(sounds, 'https://jhygreatbug.github.io/naughty-cat/assets/sound/');
+    createjs.Sound.on('fileload', function loadHandler(_a) {
+        var id = _a.id;
+        resolves[id]();
+    }, _this);
+    return {
+        getPromise: function (id) {
+            return promises[id];
+        },
+        allResolved: function () {
+            return resolveCount >= sounds.length;
+        }
+    };
+})();
 router.go('home');
