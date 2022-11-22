@@ -24,7 +24,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 var PARAMETERS = {
     blockSize: 40,
-    ballSpeed: 600
+    ballSpeed: 800
 };
 var Item;
 (function (Item) {
@@ -35,29 +35,24 @@ var Item;
     Item["cat"] = "C";
     Item["ball"] = "B";
 })(Item || (Item = {}));
-var getPathType = function (code1, code2) {
+var getPathType = function (num1, num2) {
     var flag = [0, 0, 0, 0];
-    var index1 = moveCode.indexOf(code1);
-    var index2 = moveCode.indexOf(code2);
-    flag[index1] = 1;
-    flag[index2] = 1;
+    flag[num1] = 1;
+    flag[typeof num2 === 'number' ? num2 : num1] = 1;
     return flag.join('');
 };
 function coordEq(a, b) {
     return a[0] === b[0] && a[1] === b[1];
 }
 var moveCode = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'];
-var moveOffset = {
-    ArrowUp: [-1, 0],
-    ArrowDown: [1, 0],
-    ArrowLeft: [0, -1],
-    ArrowRight: [0, 1]
-};
-var revertMoveDirection = function (code) {
-    var index = moveCode.indexOf(code);
-    var newIndex = (index + 2) % 4;
-    return moveCode[newIndex];
-};
+var direction = ['up', 'right', 'down', 'left'];
+var moveOffset = [
+    [-1, 0],
+    [0, 1],
+    [1, 0],
+    [0, -1],
+];
+var revertDirection = function (number) { return (number + 2) % 4; };
 // 地图
 var GameMap = /** @class */ (function () {
     function GameMap(params) {
@@ -92,63 +87,66 @@ var Goal = /** @class */ (function () {
 }());
 var PathSet = /** @class */ (function () {
     function PathSet(params) {
-        this.length = 0;
+        this.data = [];
         this.flag = Array.from({ length: params.height })
             .map(function (_) { return Array.from({ length: params.width }).fill(false); });
+        var firstDirection = params.data[0];
+        this.catPoint = {
+            type: getPathType(firstDirection),
+            coord: __spreadArray([], params.catCoord, true),
+            nextDirection: firstDirection
+        };
+        this.ballPoint = {
+            type: getPathType(revertDirection(firstDirection)),
+            coord: [
+                params.catCoord[0] + moveOffset[firstDirection][0],
+                params.catCoord[1] + moveOffset[firstDirection][1],
+            ],
+            prevDirection: revertDirection(firstDirection)
+        };
+        for (var i = 1; i < params.data.length; i++) {
+            this.moveBall(params.data[i]);
+        }
     }
     PathSet.prototype.has = function (coord) {
         return this.flag[coord[0]][coord[1]];
     };
-    PathSet.prototype.getData = function () {
-        var path = [];
-        var head = this.catPoint;
-        for (var i = 0; i < this.length; i++) {
-            var next = head.next;
-            if (next === this.ballPoint) {
-                break;
-            }
-            var type = getPathType(next.prevCode, next.nextCode);
-            var coord = __spreadArray([], next.coord, true);
-            path.push({ type: type, coord: coord });
-            head = next;
-        }
-        return path;
-    };
-    PathSet.prototype.moveCat = function (newCatCoord, code) {
+    PathSet.prototype.moveCat = function (directionNumber) {
         this.flag[this.catPoint.coord[0]][this.catPoint.coord[1]] = true;
-        var newCatPoint = new Path();
-        newCatPoint.coord = __spreadArray([], newCatCoord, true);
-        newCatPoint.next = this.catPoint;
-        newCatPoint.nextCode = revertMoveDirection(code);
-        this.catPoint.prev = newCatPoint;
-        this.catPoint.prevCode = code;
-        this.catPoint.type = getPathType(this.catPoint.prevCode, this.catPoint.nextCode);
+        var newCatPoint = {
+            type: getPathType(directionNumber, directionNumber),
+            coord: [
+                this.catPoint.coord[0] + moveOffset[directionNumber][0],
+                this.catPoint.coord[1] + moveOffset[directionNumber][1],
+            ],
+            nextDirection: revertDirection(directionNumber)
+        };
+        this.catPoint.prevDirection = directionNumber;
+        this.catPoint.type = getPathType(this.catPoint.prevDirection, this.catPoint.nextDirection);
+        this.data.unshift(this.catPoint);
         this.catPoint = newCatPoint;
-        this.length++;
     };
-    PathSet.prototype.moveBall = function (newBallCoord, code) {
+    PathSet.prototype.moveBall = function (directionNumber) {
         this.flag[this.ballPoint.coord[0]][this.ballPoint.coord[1]] = true;
-        var newBallPoint = new Path();
-        newBallPoint.coord = __spreadArray([], newBallCoord, true);
-        newBallPoint.prev = this.ballPoint;
-        newBallPoint.prevCode = revertMoveDirection(code);
-        this.ballPoint.next = newBallPoint;
-        this.ballPoint.nextCode = code;
-        this.ballPoint.type = getPathType(code, this.ballPoint.prevCode);
+        var newBallPoint = {
+            type: getPathType(directionNumber, directionNumber),
+            coord: [
+                this.ballPoint.coord[0] + moveOffset[directionNumber][0],
+                this.ballPoint.coord[1] + moveOffset[directionNumber][1],
+            ],
+            prevDirection: revertDirection(directionNumber)
+        };
+        this.ballPoint.nextDirection = directionNumber;
+        this.ballPoint.type = getPathType(directionNumber, this.ballPoint.prevDirection);
+        this.data.push(this.ballPoint);
         this.ballPoint = newBallPoint;
-        this.length++;
     };
     return PathSet;
-}());
-var Path = /** @class */ (function () {
-    function Path() {
-    }
-    return Path;
 }());
 var Stage = /** @class */ (function () {
     function Stage(params) {
         this.stop = true;
-        var mapRows = params.map.trim().split('\n');
+        var mapRows = params.config.map.trim().split('\n');
         var mapHeight = mapRows.length;
         var mapData = mapRows.map(function (row) { return row.trim().split(''); });
         var mapWidth = mapData.reduce(function (prev, item) { return Math.max(prev, item.length); }, 0);
@@ -163,30 +161,21 @@ var Stage = /** @class */ (function () {
             for (var y = 0, width = mapData[x].length; y < width; y++) {
                 var item = mapData[x][y];
                 var coord = [x, y];
-                if (item === Item['cat']) {
-                    this.cat = new Cat({ coord: coord });
-                    mapData[x][y] = Item['ground'];
-                }
-                else if (item === Item['ball']) {
-                    this.ball = new Ball({ coord: coord });
-                    mapData[x][y] = Item['ground'];
-                }
-                else if (item === Item['goal']) {
+                if (item === Item['goal']) {
                     this.goal = new Goal({ coord: coord });
                     mapData[x][y] = Item['ground'];
                 }
             }
         }
         // 初始化路径
-        this.path = new PathSet({ width: this.map.width, height: this.map.height });
-        this.path.ballPoint = new Path();
-        this.path.catPoint = new Path();
-        this.path.ballPoint.prev = this.path.catPoint;
-        this.path.ballPoint.prevCode = moveCode[0]; // 临时写死
-        this.path.ballPoint.coord = __spreadArray([], this.ball.coord, true);
-        this.path.catPoint.next = this.path.ballPoint;
-        this.path.catPoint.nextCode = moveCode[2]; // 临时写死
-        this.path.catPoint.coord = __spreadArray([], this.cat.coord, true);
+        this.path = new PathSet({
+            width: this.map.width,
+            height: this.map.height,
+            catCoord: params.config.catCoord,
+            data: params.config.path
+        });
+        this.cat = new Cat({ coord: params.config.catCoord });
+        this.ball = new Ball({ coord: this.path.ballPoint.coord });
         this.correct = correct;
         if (this.correct) {
             this.stop = false;
@@ -220,7 +209,7 @@ var Stage = /** @class */ (function () {
             .join('\n');
         var $path = document.querySelector('#stages .scene.path');
         $path.innerHTML = '';
-        $path.innerHTML = stage.path.getData()
+        $path.innerHTML = stage.path.data
             .map(function (_a) {
             var type = _a.type, _b = _a.coord, x = _b[0], y = _b[1];
             return "<div class=\"block i-path\" data-status=\"".concat(type, "\" style=\"grid-column: ").concat(y + 1, "; grid-row: ").concat(x + 1, ";\"></div>");
@@ -232,12 +221,12 @@ var Stage = /** @class */ (function () {
         $element.innerHTML += "<div class=\"block i-ball\" data-status=\"".concat(stage.ball.status, "\" style=\"grid-row: ").concat(stage.ball.coord[0] + 1, "; grid-column: ").concat(stage.ball.coord[1] + 1, ";\"></div>");
         $element.innerHTML += "<div class=\"block i-cat\" data-status=\"".concat(stage.cat.status, "\" style=\"grid-row: ").concat(stage.cat.coord[0] + 1, "; grid-column: ").concat(stage.cat.coord[1] + 1, ";\"></div>");
     };
-    Stage.prototype.moveCat = function (code) {
+    Stage.prototype.moveCat = function (directionNumber) {
         if (this.stop) {
             return;
         }
-        this.cat.status = code.toLowerCase().replace('arrow', '');
-        var _a = moveOffset[code], x = _a[0], y = _a[1];
+        this.cat.status = direction[directionNumber];
+        var _a = moveOffset[directionNumber], x = _a[0], y = _a[1];
         var _b = this.cat.coord, cx = _b[0], cy = _b[1];
         var _c = [cx + x, cy + y], tx = _c[0], ty = _c[1];
         var target = this.map.data[tx][ty];
@@ -246,14 +235,14 @@ var Stage = /** @class */ (function () {
                 this.stop = true;
                 this.cat.coord = [tx, ty];
                 this.cat.status = 'win';
-                this.path.moveCat(this.cat.coord, code);
+                this.path.moveCat(directionNumber);
                 Stage.draw(this);
                 setTimeout(function () {
                     alert('耶！你赢了✌️');
                 }, 100);
                 return;
             }
-            this.moveBall(code);
+            this.moveBall(directionNumber);
         }
         else {
             if (target === Item['ground']) {
@@ -262,19 +251,19 @@ var Stage = /** @class */ (function () {
                     this.stop = true;
                 }
                 this.cat.coord = [tx, ty];
-                this.path.moveCat(this.cat.coord, code);
+                this.path.moveCat(directionNumber);
             }
         }
         Stage.draw(this);
     };
-    Stage.prototype.moveBall = function (code) {
+    Stage.prototype.moveBall = function (directionNumber) {
         var _this = this;
         if (this.stop) {
             return;
         }
-        this.ball.status = code.toLowerCase().replace('arrow', '');
+        this.ball.status = direction[directionNumber];
         clearTimeout(this.ballTimer);
-        var _a = moveOffset[code], x = _a[0], y = _a[1];
+        var _a = moveOffset[directionNumber], x = _a[0], y = _a[1];
         var _b = this.ball.coord, bx = _b[0], by = _b[1];
         var _c = [bx + x, by + y], tx = _c[0], ty = _c[1];
         if (coordEq(this.cat.coord, [tx, ty])) {
@@ -282,7 +271,7 @@ var Stage = /** @class */ (function () {
                 this.stop = true;
                 this.cat.status = 'win';
                 this.ball.coord = [tx, ty];
-                this.path.moveBall(this.ball.coord, code);
+                this.path.moveBall(directionNumber);
                 Stage.draw(this);
                 setTimeout(function () {
                     alert('耶！你赢了✌️');
@@ -293,16 +282,16 @@ var Stage = /** @class */ (function () {
         var target = this.map.data[tx][ty];
         if (target === Item['space']) {
             this.ball.coord = [tx, ty];
-            this.path.moveBall(this.ball.coord, code);
+            this.path.moveBall(directionNumber);
             this.stop = true;
-            alert('毛线球掉进坑里了！');
+            alert('毛线球掉进坑里，你失败了！点击reset再来一次吧');
             return;
         }
         if (target === Item['ground']) {
             this.ball.coord = [tx, ty];
-            this.path.moveBall(this.ball.coord, code);
+            this.path.moveBall(directionNumber);
             this.ballTimer = setTimeout(function () {
-                _this.moveBall(code);
+                _this.moveBall(directionNumber);
             }, PARAMETERS.ballSpeed);
         }
         Stage.draw(this);
@@ -317,8 +306,9 @@ var command = (function () {
             return;
         }
         var code = e.code;
-        if (moveCode.includes(code)) {
-            stage.moveCat(code);
+        var direction = moveCode.indexOf(code);
+        if (direction > -1) {
+            stage.moveCat(direction);
         }
     });
     return {
@@ -334,11 +324,11 @@ var command = (function () {
 var controller = (function () {
     var stage;
     return {
-        start: function (stageStr) {
+        start: function (stageConfig) {
             if (stage) {
                 stage.destroy();
             }
-            stage = new Stage({ map: stageStr });
+            stage = new Stage({ config: stageConfig });
             if (!stage.correct) {
                 alert('地图错误！');
                 return;
@@ -372,6 +362,7 @@ var PageStages = /** @class */ (function (_super) {
     __extends(PageStages, _super);
     function PageStages() {
         var _this = _super.call(this) || this;
+        _this.currentStage = 0;
         _this.handleExitClick = function () {
             router.go('home');
         };
@@ -379,17 +370,74 @@ var PageStages = /** @class */ (function (_super) {
             router.go('home');
         });
         document.querySelector('#stages .reset').addEventListener('click', _this.handleResetClick = function () {
-            controller.start("\n        ############\n        #....C.....#\n        #....B.....#  \n        #..........#\n        #..........#\n        #..........#  \n        #.........G#\n        #xx........#\n        #xx........#\n        ############\n      ");
+            controller.start(stages[_this.currentStage]);
         });
-        // document.querySelector('#stages .stage-list').innerHTML = '<wired-item value="0" role="option" class="wired-rendered stage-item">No. one</wired-item>'
-        controller.start("\n      ############\n      #....C.....#\n      #....B.....#  \n      #..........#\n      #..........#\n      #..........#  \n      #.........G#\n      #xx........#\n      #xx........#\n      ############\n    ");
+        var stageSelect = document.querySelector('#stages .stage-select');
+        stageSelect.innerHTML = stages
+            .map(function (v, i) { return "<wired-item value=\"".concat(i, "\">Level ").concat(i + 1, "</wired-item>"); })
+            .join('\n');
+        stageSelect.selected = '0';
+        stageSelect.firstUpdated();
+        stageSelect.addEventListener('selected', _this.handleStageSelected = function () {
+            _this.currentStage = stageSelect.selected;
+            document.querySelector('#stages .some-words').innerHTML = stages[_this.currentStage].someWords;
+            controller.start(stages[_this.currentStage]);
+        });
+        controller.start(stages[0]);
+        document.querySelector('#stages .some-words').innerHTML = stages[0].someWords;
         return _this;
     }
     PageStages.prototype.destroy = function () {
         document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
+        document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
+        document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
     };
     return PageStages;
 }(Page));
+var stages = [
+    {
+        key: '1',
+        map: "\n      ##########\n      #........#\n      #..G.....#\n      #..##....#\n      #........#\n      #........#\n      #....##..#\n      #........#\n      #........#\n      ##########\n    ",
+        someWords: 'Don\'t touch the line, get to where the ball is',
+        catCoord: [2, 7],
+        path: [0, 3, 3, 2, 2, 1, 2, 2, 3, 3, 2, 2, 1, 1, 1, 0, 0, 0, 3, 3, 3, 3, 2, 2, 2, 3, 0, 0, 0, 0, 0, 1]
+    },
+    {
+        key: '2',
+        map: "\n      .....#####\n      .....#G..#\n      .....#...#\n      .....#...#\n      ######...#\n      #......#.#\n      #.####...#\n      #........#\n      ##########\n    ",
+        someWords: 'Push the ball to the flag and the cat will also reach the flag',
+        catCoord: [5, 1],
+        path: [1]
+    },
+    {
+        key: '3',
+        map: "\n      ##########\n      #........#\n      #........#\n      #........#\n      #......G.#\n      #........#\n      #........#\n      #........#\n      #........#\n      ##########\n    ",
+        someWords: 'A free stage',
+        catCoord: [1, 5],
+        path: [2]
+    },
+    {
+        key: '4',
+        map: "\n      ###########\n      #.........#\n      #.........#\n      #...#.#...#\n      #..#...#..#\n      #.........#\n      #..#...#..#\n      #...#.#...#\n      #.........#\n      #....G....#\n      ###########\n    ",
+        someWords: 'Test your speed',
+        catCoord: [6, 1],
+        path: [2, 2, 2, 1, 0, 0, 0, 0]
+    },
+    {
+        key: '5',
+        map: "\n      #########\n      #....G..#\n      #.......#\n      #########\n    ",
+        someWords: 'Try to find the shortest route',
+        catCoord: [1, 1],
+        path: [1]
+    },
+    {
+        key: '6',
+        map: "\n      ###########\n      #.........#\n      #.........#\n      #...#.#...#\n      #..#...#..#\n      #.........#\n      #..#...#..#\n      #...#.#...#\n      #....G....#\n      #....X....#\n      ###########\n    ",
+        someWords: 'Be careful not to fall into the pit. Test your speed, again',
+        catCoord: [6, 1],
+        path: [2, 2, 2, 1, 0, 0, 0, 0]
+    },
+];
 var router = (function (routeConfig) {
     var currentPage = null;
     var currentPageName = '';

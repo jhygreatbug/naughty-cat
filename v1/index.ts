@@ -1,6 +1,6 @@
 const PARAMETERS = {
   blockSize: 40,
-  ballSpeed: 600,
+  ballSpeed: 800,
 };
 
 enum Item {
@@ -13,12 +13,10 @@ enum Item {
   ball = 'B',
 }
 
-const getPathType = (code1: typeof moveCode[number], code2: typeof moveCode[number]) => {
+const getPathType = (num1: DirectionNumber, num2?: DirectionNumber) => {
   const flag = [0, 0, 0, 0];
-  const index1 = moveCode.indexOf(code1);
-  const index2 = moveCode.indexOf(code2);
-  flag[index1] = 1;
-  flag[index2] = 1;
+  flag[num1] = 1;
+  flag[typeof num2 === 'number' ? num2 : num1] = 1;
   return flag.join('');
 }
 
@@ -28,19 +26,18 @@ function coordEq(a: Coordinate, b: Coordinate) {
 }
 
 const moveCode = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'] as const;
+type DirectionNumber = 0 | 1 | 2 | 3;
+const direction = ['up', 'right', 'down', 'left'] as const;
+type Direction = typeof direction[number];
 
-const moveOffset = {
-  ArrowUp: [-1, 0],
-  ArrowDown: [1, 0],
-  ArrowLeft: [0, -1],
-  ArrowRight: [0, 1],
-}
+const moveOffset = [
+  [-1, 0],
+  [0, 1],
+  [1, 0],
+  [0, -1],
+]
 
-const revertMoveDirection = (code: typeof moveCode[number]) => {
-  const index = moveCode.indexOf(code);
-  const newIndex = (index + 2) % 4;
-  return moveCode[newIndex];
-}
+const revertDirection = (number: DirectionNumber) => (number + 2) % 4 as DirectionNumber;
 
 // 地图
 class GameMap {
@@ -61,7 +58,7 @@ abstract class BaseItem {
   coord: Coordinate;
 }
 
-type CatStatus = 'up' | 'right' | 'down' | 'left' | 'win' | 'shuai';
+type CatStatus = Direction | 'win' | 'shuai';
 class Cat implements BaseItem {
   coord: Coordinate;
   status: CatStatus = 'down';
@@ -72,7 +69,7 @@ class Cat implements BaseItem {
   }
 }
 
-type BallStatus = 'up' | 'right' | 'down' | 'left';
+type BallStatus = Direction;
 class Ball implements BaseItem {
   coord: Coordinate;
   status: BallStatus = 'down';
@@ -92,75 +89,88 @@ class Goal implements BaseItem {
   }
 }
 
+interface Path {
+  type: string;
+  coord: Coordinate;
+  prevDirection?: DirectionNumber;
+  nextDirection?: DirectionNumber;
+}
+
 class PathSet {
   flag: boolean[][];
-  length = 0;
   catPoint: Path;
   ballPoint: Path;
+  data: Path[] = [];
 
-  constructor(params: { width: number; height: number }) {
+  constructor(params: {
+    width: number;
+    height: number;
+    catCoord: Coordinate;
+    data: DirectionNumber[];
+  }) {
     this.flag = Array.from({ length: params.height })
       .map(_ => Array.from({ length: params.width }).fill(false) as boolean[]);
+
+    const firstDirection = params.data[0];
+    this.catPoint = {
+      type: getPathType(firstDirection),
+      coord: [...params.catCoord],
+      nextDirection: firstDirection,
+    };
+
+    this.ballPoint = {
+      type: getPathType(revertDirection(firstDirection)),
+      coord: [
+        params.catCoord[0] + moveOffset[firstDirection][0],
+        params.catCoord[1] + moveOffset[firstDirection][1],
+      ],
+      prevDirection: revertDirection(firstDirection),
+    };
+
+    for (let i = 1; i < params.data.length; i ++) {
+      this.moveBall(params.data[i]);
+    }
   }
 
   has(coord: Coordinate) {
     return this.flag[coord[0]][coord[1]];
   }
 
-  getData() {
-    const path: Array<{ type: string; coord: Coordinate}> = [];
-    let head = this.catPoint;
-    for (let i = 0; i < this.length; i ++) {
-      const next = head.next;
-      if (next === this.ballPoint) {
-        break;
-      }
-      const type = getPathType(next.prevCode, next.nextCode);
-      const coord: Coordinate = [...next.coord];
-      path.push({ type, coord });
-      head = next;
-    }
-    return path;
-  }
-
-  moveCat(newCatCoord: Coordinate, code: typeof moveCode[number]) {
+  moveCat(directionNumber: DirectionNumber) {
     this.flag[this.catPoint.coord[0]][this.catPoint.coord[1]] = true;
 
-    const newCatPoint = new Path();
-    newCatPoint.coord = [...newCatCoord];
-    newCatPoint.next = this.catPoint;
-    newCatPoint.nextCode = revertMoveDirection(code);
-    this.catPoint.prev = newCatPoint;
-    this.catPoint.prevCode = code;
-    this.catPoint.type = getPathType(this.catPoint.prevCode, this.catPoint.nextCode);
-    this.catPoint = newCatPoint;
+    const newCatPoint: Path = {
+      type: getPathType(directionNumber, directionNumber),
+      coord: [
+        this.catPoint.coord[0] + moveOffset[directionNumber][0],
+        this.catPoint.coord[1] + moveOffset[directionNumber][1],
+      ],
+      nextDirection: revertDirection(directionNumber),
+    }
+    this.catPoint.prevDirection = directionNumber;
+    this.catPoint.type = getPathType(this.catPoint.prevDirection, this.catPoint.nextDirection)
 
-    this.length ++;
+    this.data.unshift(this.catPoint);
+    this.catPoint = newCatPoint;
   }
 
-  moveBall(newBallCoord: Coordinate, code: typeof moveCode[number]) {
+  moveBall(directionNumber: DirectionNumber) {
     this.flag[this.ballPoint.coord[0]][this.ballPoint.coord[1]] = true;
 
-    const newBallPoint = new Path();
-    newBallPoint.coord = [...newBallCoord];
-    newBallPoint.prev = this.ballPoint;
-    newBallPoint.prevCode = revertMoveDirection(code);
-    this.ballPoint.next = newBallPoint;
-    this.ballPoint.nextCode = code;
-    this.ballPoint.type = getPathType(code, this.ballPoint.prevCode);
+    const newBallPoint: Path = {
+      type: getPathType(directionNumber, directionNumber),
+      coord: [
+        this.ballPoint.coord[0] + moveOffset[directionNumber][0],
+        this.ballPoint.coord[1] + moveOffset[directionNumber][1],
+      ],
+      prevDirection: revertDirection(directionNumber),
+    };
+    this.ballPoint.nextDirection = directionNumber;
+    this.ballPoint.type = getPathType(directionNumber, this.ballPoint.prevDirection);
+
+    this.data.push(this.ballPoint);
     this.ballPoint = newBallPoint;
-
-    this.length ++;
   }
-}
-
-class Path {
-  prev: Path | null;
-  next: Path | null;
-  type: string;
-  prevCode: typeof moveCode[number];
-  nextCode: typeof moveCode[number];
-  coord: Coordinate;
 }
 
 class Stage {
@@ -173,8 +183,8 @@ class Stage {
   private stop = true;
   private ballTimer: ReturnType<typeof setTimeout>;
 
-  constructor(params: { map: string }) {
-    const mapRows = params.map.trim().split('\n');
+  constructor(params: { config: StageConfig }) {
+    const mapRows = params.config.map.trim().split('\n');
     const mapHeight = mapRows.length;
     const mapData = mapRows.map(row => row.trim().split(''));
     const mapWidth = mapData.reduce((prev, item) => Math.max(prev, item.length), 0);
@@ -191,13 +201,7 @@ class Stage {
       for (let y = 0, width = mapData[x].length; y < width; y ++) {
         const item = mapData[x][y];
         const coord: Coordinate = [x, y];
-        if (item === Item['cat']) {
-          this.cat = new Cat({ coord });
-          mapData[x][y] = Item['ground'];
-        } else if (item === Item['ball']) {
-          this.ball = new Ball({ coord });
-          mapData[x][y] = Item['ground'];
-        } else if (item === Item['goal']) {
+         if (item === Item['goal']) {
           this.goal = new Goal({ coord });
           mapData[x][y] = Item['ground'];
         }
@@ -205,15 +209,14 @@ class Stage {
     }
 
     // 初始化路径
-    this.path = new PathSet({ width: this.map.width, height: this.map.height });
-    this.path.ballPoint = new Path();
-    this.path.catPoint = new Path();
-    this.path.ballPoint.prev = this.path.catPoint;
-    this.path.ballPoint.prevCode = moveCode[0]; // 临时写死
-    this.path.ballPoint.coord = [...this.ball.coord];
-    this.path.catPoint.next = this.path.ballPoint;
-    this.path.catPoint.nextCode = moveCode[2]; // 临时写死
-    this.path.catPoint.coord = [...this.cat.coord];
+    this.path = new PathSet({
+      width: this.map.width,
+      height: this.map.height,
+      catCoord: params.config.catCoord,
+      data: params.config.path,
+    });
+    this.cat = new Cat({ coord: params.config.catCoord });
+    this.ball = new Ball({ coord: this.path.ballPoint.coord });
 
     this.correct = correct;
     if (this.correct) {
@@ -253,7 +256,7 @@ class Stage {
 
     const $path = document.querySelector('#stages .scene.path') as HTMLElement;
     $path.innerHTML = '';
-    $path.innerHTML = stage.path.getData()
+    $path.innerHTML = stage.path.data
       .map(({ type, coord: [x, y] }) => `<div class="block i-path" data-status="${type}" style="grid-column: ${y + 1}; grid-row: ${x + 1};"></div>`)
       .join('\n');
 
@@ -264,14 +267,14 @@ class Stage {
     $element.innerHTML += `<div class="block i-cat" data-status="${stage.cat.status}" style="grid-row: ${stage.cat.coord[0] + 1}; grid-column: ${stage.cat.coord[1] + 1};"></div>`
   }
 
-  moveCat(code: typeof moveCode[number]) {
+  moveCat(directionNumber: DirectionNumber) {
     if (this.stop) {
       return
     }
 
-    this.cat.status = code.toLowerCase().replace('arrow', '') as CatStatus;
+    this.cat.status = direction[directionNumber] as CatStatus;
 
-    const [x, y] = moveOffset[code];
+    const [x, y] = moveOffset[directionNumber];
     const [cx, cy] = this.cat.coord;
     const [tx, ty] = [cx + x, cy + y];
     const target = this.map.data[tx][ty];
@@ -280,14 +283,14 @@ class Stage {
         this.stop = true;
         this.cat.coord = [tx, ty];
         this.cat.status = 'win';
-        this.path.moveCat(this.cat.coord, code);
+        this.path.moveCat(directionNumber);
         Stage.draw(this);
         setTimeout(() => {
           alert('耶！你赢了✌️');
         }, 100);
         return;
       }
-      this.moveBall(code);
+      this.moveBall(directionNumber);
     } else {
       if (target === Item['ground']) {
         if (this.path.has([tx, ty])) {
@@ -295,22 +298,22 @@ class Stage {
           this.stop = true;
         }
         this.cat.coord = [tx, ty];
-        this.path.moveCat(this.cat.coord, code);
+        this.path.moveCat(directionNumber);
       }
     }
 
     Stage.draw(this);
   }
 
-  moveBall(code: typeof moveCode[number]) {
+  moveBall(directionNumber: DirectionNumber) {
     if (this.stop) {
       return
     }
 
-    this.ball.status = code.toLowerCase().replace('arrow', '') as BallStatus;
+    this.ball.status = direction[directionNumber] as BallStatus;
 
     clearTimeout(this.ballTimer);
-    const [x, y] = moveOffset[code];
+    const [x, y] = moveOffset[directionNumber];
     const [bx, by] = this.ball.coord;
     const [tx, ty] = [bx + x, by + y];
 
@@ -319,7 +322,7 @@ class Stage {
         this.stop = true;
         this.cat.status = 'win';
         this.ball.coord = [tx, ty];
-        this.path.moveBall(this.ball.coord, code);
+        this.path.moveBall(directionNumber);
         Stage.draw(this);
         setTimeout(() => {
           alert('耶！你赢了✌️');
@@ -332,17 +335,17 @@ class Stage {
 
     if (target === Item['space']) {
       this.ball.coord = [tx, ty];
-      this.path.moveBall(this.ball.coord, code);
+      this.path.moveBall(directionNumber);
       this.stop = true;
-      alert('毛线球掉进坑里了！');
+      alert('毛线球掉进坑里，你失败了！点击reset再来一次吧');
       return;
     }
 
     if (target === Item['ground']) {
       this.ball.coord = [tx, ty];
-      this.path.moveBall(this.ball.coord, code);
+      this.path.moveBall(directionNumber);
       this.ballTimer = setTimeout(() => {
-        this.moveBall(code);
+        this.moveBall(directionNumber);
       }, PARAMETERS.ballSpeed);
     }
 
@@ -359,8 +362,9 @@ const command = (() => {
     }
 
     const code = e.code as typeof moveCode[number];
-    if (moveCode.includes(code)) {
-      stage.moveCat(code)
+    const direction = moveCode.indexOf(code) as DirectionNumber;
+    if (direction > -1) {
+      stage.moveCat(direction)
     }
   })
   return {
@@ -378,11 +382,11 @@ const command = (() => {
 const controller = (() => {
   let stage: Stage
   return {
-    start(stageStr: string) {
+    start(stageConfig: StageConfig) {
       if (stage) {
         stage.destroy();
       }
-      stage = new Stage({ map: stageStr });
+      stage = new Stage({ config: stageConfig });
       if (!stage.correct) {
         alert('地图错误！');
         return;
@@ -415,9 +419,11 @@ class PageHome extends Page {
 class PageStages extends Page {
   handleExitClick: () => void;
   handleResetClick: () => void;
+  handleStageSelected: () => void;
+  currentStage = 0;
   constructor() {
     super();
-    
+
     this.handleExitClick = () => {
       router.go('home');
     }
@@ -425,40 +431,145 @@ class PageStages extends Page {
       router.go('home');
     });
     document.querySelector('#stages .reset').addEventListener('click', this.handleResetClick = () => {
-      controller.start(`
-        ############
-        #....C.....#
-        #....B.....#  
-        #..........#
-        #..........#
-        #..........#  
-        #.........G#
-        #xx........#
-        #xx........#
-        ############
-      `);
+      controller.start(stages[this.currentStage]);
     });
 
-    // document.querySelector('#stages .stage-list').innerHTML = '<wired-item value="0" role="option" class="wired-rendered stage-item">No. one</wired-item>'
+    const stageSelect = document.querySelector('#stages .stage-select') as HTMLSelectElement;
+    stageSelect.innerHTML = stages
+      .map((v, i) => `<wired-item value="${i}">Level ${i + 1}</wired-item>`)
+      .join('\n');
+    (stageSelect as any).selected = '0';
+    (stageSelect as any).firstUpdated();
+    stageSelect.addEventListener('selected', this.handleStageSelected = () => {
+      this.currentStage = (stageSelect as any).selected;
+      document.querySelector('#stages .some-words').innerHTML = stages[this.currentStage].someWords;
+      controller.start(stages[this.currentStage]);
+    });
 
-    controller.start(`
-      ############
-      #....C.....#
-      #....B.....#  
-      #..........#
-      #..........#
-      #..........#  
-      #.........G#
-      #xx........#
-      #xx........#
-      ############
-    `);
+    controller.start(stages[0]);
+    document.querySelector('#stages .some-words').innerHTML = stages[0].someWords;
   }
 
   destroy() {
     document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
+    document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
+    document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
   }
 }
+
+interface StageConfig {
+  key: string;
+  map: string;
+  catCoord: Coordinate;
+  someWords: string;
+  path: DirectionNumber[];
+}
+const stages: StageConfig[] = [
+  {
+    key: '1',
+    map: `
+      ##########
+      #........#
+      #..G.....#
+      #..##....#
+      #........#
+      #........#
+      #....##..#
+      #........#
+      #........#
+      ##########
+    `,
+    someWords: 'Don\'t touch the line, get to where the ball is',
+    catCoord: [2, 7],
+    path: [0,3,3,2,2,1,2,2,3,3,2,2,1,1,1,0,0,0,3,3,3,3,2,2,2,3,0,0,0,0,0,1],
+
+  },
+  {
+    key: '2',
+    map: `
+      .....#####
+      .....#G..#
+      .....#...#
+      .....#...#
+      ######...#
+      #......#.#
+      #.####...#
+      #........#
+      ##########
+    `,
+    someWords: 'Push the ball to the flag and the cat will also reach the flag',
+    catCoord: [5, 1],
+    path: [1],
+  },
+  {
+    key: '3',
+    map: `
+      ##########
+      #........#
+      #........#
+      #........#
+      #......G.#
+      #........#
+      #........#
+      #........#
+      #........#
+      ##########
+    `,
+    someWords: 'A free stage',
+    catCoord: [1, 5],
+    path: [2],
+  },
+  {
+    key: '4',
+    map: `
+      ###########
+      #.........#
+      #.........#
+      #...#.#...#
+      #..#...#..#
+      #.........#
+      #..#...#..#
+      #...#.#...#
+      #.........#
+      #....G....#
+      ###########
+    `,
+    someWords: 'Test your speed',
+    catCoord: [6, 1],
+    path: [2,2,2,1,0,0,0,0],
+  },
+  {
+    key: '5',
+    map: `
+      #########
+      #....G..#
+      #.......#
+      #########
+    `,
+    someWords: 'Try to find the shortest route',
+    catCoord: [1, 1],
+    path: [1],
+  },
+  {
+    key: '6',
+    map: `
+      ###########
+      #.........#
+      #.........#
+      #...#.#...#
+      #..#...#..#
+      #.........#
+      #..#...#..#
+      #...#.#...#
+      #....G....#
+      #....X....#
+      ###########
+    `,
+    someWords: 'Be careful not to fall into the pit. Test your speed, again',
+    catCoord: [6, 1],
+    path: [2,2,2,1,0,0,0,0],
+  },
+]
 
 const router = ((routeConfig: Record<string, typeof Page>) => {
   let currentPage: Page = null;
