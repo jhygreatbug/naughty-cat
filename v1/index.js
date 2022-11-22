@@ -106,7 +106,7 @@ var PathSet = /** @class */ (function () {
             prevDirection: revertDirection(firstDirection)
         };
         for (var i = 1; i < params.data.length; i++) {
-            this.moveBall(params.data[i]);
+            this.moveBall(params.data[i], true);
         }
     }
     PathSet.prototype.has = function (coord) {
@@ -127,7 +127,8 @@ var PathSet = /** @class */ (function () {
         this.data.unshift(this.catPoint);
         this.catPoint = newCatPoint;
     };
-    PathSet.prototype.moveBall = function (directionNumber) {
+    PathSet.prototype.moveBall = function (directionNumber, muted) {
+        if (muted === void 0) { muted = false; }
         this.flag[this.ballPoint.coord[0]][this.ballPoint.coord[1]] = true;
         var newBallPoint = {
             type: getPathType(directionNumber, directionNumber),
@@ -141,6 +142,9 @@ var PathSet = /** @class */ (function () {
         this.ballPoint.type = getPathType(directionNumber, this.ballPoint.prevDirection);
         this.data.push(this.ballPoint);
         this.ballPoint = newBallPoint;
+        if (!muted) {
+            createjs.Sound.play('effect-ball');
+        }
     };
     return PathSet;
 }());
@@ -238,6 +242,8 @@ var Stage = /** @class */ (function () {
                 this.cat.status = 'win';
                 this.path.moveCat(directionNumber);
                 Stage.draw(this);
+                createjs.Sound.play('effect-meo-win');
+                createjs.Sound.play('effect-win');
                 setTimeout(function () {
                     alert('耶！你赢了✌️');
                 }, 100);
@@ -248,11 +254,16 @@ var Stage = /** @class */ (function () {
         else {
             if (target === Item['ground']) {
                 if (this.path.has([tx, ty])) {
+                    createjs.Sound.play('effect-meo-fail');
                     this.cat.status = 'shuai';
                     this.stop = true;
                 }
                 this.cat.coord = [tx, ty];
+                createjs.Sound.play('effect-move');
                 this.path.moveCat(directionNumber);
+            }
+            else {
+                createjs.Sound.play('effect-error');
             }
         }
         Stage.draw(this);
@@ -274,6 +285,8 @@ var Stage = /** @class */ (function () {
                 this.ball.coord = [tx, ty];
                 this.path.moveBall(directionNumber);
                 Stage.draw(this);
+                createjs.Sound.play('effect-meo-win');
+                createjs.Sound.play('effect-win');
                 setTimeout(function () {
                     alert('耶！你赢了✌️');
                 }, 100);
@@ -351,12 +364,13 @@ var PageHome = /** @class */ (function (_super) {
         var _this = _super.call(this) || this;
         _this.bgmId = 'bgm01-title';
         _this.handleEnterClick = function () {
+            createjs.Sound.play('effect-click');
             router.go('stages');
         };
         document.querySelector('#home .enter').addEventListener('click', _this.handleEnterClick);
         sound.getPromise(_this.bgmId).then(function () {
             if (router.getCurrentPage() === _this) {
-                createjs.Sound.play(_this.bgmId, { loop: true });
+                createjs.Sound.play(_this.bgmId, { loop: -1 });
             }
         });
         return _this;
@@ -373,13 +387,12 @@ var PageStages = /** @class */ (function (_super) {
         var _this = _super.call(this) || this;
         _this.bgmId = 'bgm02-stage';
         _this.currentStage = 0;
-        _this.handleExitClick = function () {
-            router.go('home');
-        };
         document.querySelector('#stages .exit').addEventListener('click', _this.handleExitClick = function () {
+            createjs.Sound.play('effect-click');
             router.go('home');
         });
         document.querySelector('#stages .reset').addEventListener('click', _this.handleResetClick = function () {
+            createjs.Sound.play('effect-click');
             controller.start(stages[_this.currentStage]);
         });
         var stageSelect = document.querySelector('#stages .stage-select');
@@ -389,17 +402,22 @@ var PageStages = /** @class */ (function (_super) {
         stageSelect.selected = '0';
         stageSelect.firstUpdated();
         stageSelect.addEventListener('selected', _this.handleStageSelected = function () {
+            createjs.Sound.play('effect-click');
             _this.loadStage(stageSelect.selected);
+        });
+        stageSelect.addEventListener('click', _this.handleStageClick = function () {
+            createjs.Sound.play('effect-click');
         });
         document.addEventListener('keyup', _this.handleKeyup = function (e) {
             if (e.key === 'r') {
+                createjs.Sound.play('effect-click');
                 _this.loadStage(_this.currentStage);
             }
         });
         _this.loadStage(0);
         sound.getPromise(_this.bgmId).then(function () {
             if (router.getCurrentPage() === _this) {
-                createjs.Sound.play(_this.bgmId, { loop: true });
+                createjs.Sound.play(_this.bgmId, { loop: -1 });
             }
         });
         return _this;
@@ -408,6 +426,7 @@ var PageStages = /** @class */ (function (_super) {
         document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
         document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
         document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
+        document.querySelector('#stages .stage-select').removeEventListener('click', this.handleStageClick);
         document.removeEventListener('keyup', this.handleKeyup);
         createjs.Sound.stop(this.bgmId);
     };
@@ -496,6 +515,34 @@ var sound = (function () {
         {
             src: 'bgm02-stage.mp3',
             id: 'bgm02-stage'
+        },
+        {
+            src: 'effect-ball.mp3',
+            id: 'effect-ball'
+        },
+        {
+            src: 'effect-click.wav',
+            id: 'effect-click'
+        },
+        {
+            src: 'effect-error.wav',
+            id: 'effect-error'
+        },
+        {
+            src: 'effect-meo-fail.ogg',
+            id: 'effect-meo-fail'
+        },
+        {
+            src: 'effect-meo-win.mp3',
+            id: 'effect-meo-win'
+        },
+        {
+            src: 'effect-move.wav',
+            id: 'effect-move'
+        },
+        {
+            src: 'effect-win.mp3',
+            id: 'effect-win'
         },
     ];
     sounds.forEach(function (_a) {

@@ -128,7 +128,7 @@ class PathSet {
     };
 
     for (let i = 1; i < params.data.length; i ++) {
-      this.moveBall(params.data[i]);
+      this.moveBall(params.data[i], true);
     }
   }
 
@@ -154,7 +154,7 @@ class PathSet {
     this.catPoint = newCatPoint;
   }
 
-  moveBall(directionNumber: DirectionNumber) {
+  moveBall(directionNumber: DirectionNumber, muted: boolean = false) {
     this.flag[this.ballPoint.coord[0]][this.ballPoint.coord[1]] = true;
 
     const newBallPoint: Path = {
@@ -170,6 +170,10 @@ class PathSet {
 
     this.data.push(this.ballPoint);
     this.ballPoint = newBallPoint;
+
+    if (!muted) {
+      createjs.Sound.play('effect-ball');
+    }
   }
 }
 
@@ -285,6 +289,8 @@ class Stage {
         this.cat.status = 'win';
         this.path.moveCat(directionNumber);
         Stage.draw(this);
+        createjs.Sound.play('effect-meo-win');
+        createjs.Sound.play('effect-win');
         setTimeout(() => {
           alert('耶！你赢了✌️');
         }, 100);
@@ -294,11 +300,15 @@ class Stage {
     } else {
       if (target === Item['ground']) {
         if (this.path.has([tx, ty])) {
+          createjs.Sound.play('effect-meo-fail');
           this.cat.status = 'shuai';
           this.stop = true;
         }
         this.cat.coord = [tx, ty];
+        createjs.Sound.play('effect-move');
         this.path.moveCat(directionNumber);
+      } else {
+        createjs.Sound.play('effect-error');
       }
     }
 
@@ -324,6 +334,8 @@ class Stage {
         this.ball.coord = [tx, ty];
         this.path.moveBall(directionNumber);
         Stage.draw(this);
+        createjs.Sound.play('effect-meo-win');
+        createjs.Sound.play('effect-win');
         setTimeout(() => {
           alert('耶！你赢了✌️');
         }, 100)
@@ -409,13 +421,14 @@ class PageHome extends Page {
   constructor() {
     super();
     this.handleEnterClick = () => {
+      createjs.Sound.play('effect-click');
       router.go('stages');
     }
     document.querySelector('#home .enter').addEventListener('click', this.handleEnterClick);
 
     sound.getPromise(this.bgmId).then(() => {
       if (router.getCurrentPage() === this) {
-        createjs.Sound.play(this.bgmId, { loop: true });
+        createjs.Sound.play(this.bgmId, { loop: -1 });
       }
     })
   }
@@ -431,18 +444,18 @@ class PageStages extends Page {
   handleExitClick: () => void;
   handleResetClick: () => void;
   handleStageSelected: () => void;
+  handleStageClick: () => void;
   handleKeyup: (e: KeyboardEvent) => void;
   currentStage = 0;
   constructor() {
     super();
 
-    this.handleExitClick = () => {
-      router.go('home');
-    }
     document.querySelector('#stages .exit').addEventListener('click', this.handleExitClick = () => {
+      createjs.Sound.play('effect-click');
       router.go('home');
     });
     document.querySelector('#stages .reset').addEventListener('click', this.handleResetClick = () => {
+      createjs.Sound.play('effect-click');
       controller.start(stages[this.currentStage]);
     });
 
@@ -453,11 +466,16 @@ class PageStages extends Page {
     (stageSelect as any).selected = '0';
     (stageSelect as any).firstUpdated();
     stageSelect.addEventListener('selected', this.handleStageSelected = () => {
+      createjs.Sound.play('effect-click');
       this.loadStage((stageSelect as any).selected);
+    });
+    stageSelect.addEventListener('click', this.handleStageClick = () => {
+      createjs.Sound.play('effect-click');
     });
 
     document.addEventListener('keyup', this.handleKeyup = e => {
       if (e.key === 'r') {
+        createjs.Sound.play('effect-click');
         this.loadStage(this.currentStage);
       }
     })
@@ -466,7 +484,7 @@ class PageStages extends Page {
 
     sound.getPromise(this.bgmId).then(() => {
       if (router.getCurrentPage() === this) {
-        createjs.Sound.play(this.bgmId, { loop: true });
+        createjs.Sound.play(this.bgmId, { loop: -1 });
       }
     })
   }
@@ -475,6 +493,7 @@ class PageStages extends Page {
     document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
     document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
     document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
+    document.querySelector('#stages .stage-select').removeEventListener('click', this.handleStageClick);
     document.removeEventListener('keyup', this.handleKeyup);
     createjs.Sound.stop(this.bgmId);
   }
@@ -636,6 +655,34 @@ const sound = (() => {
     {
       src: 'bgm02-stage.mp3',
       id: 'bgm02-stage',
+    },
+    {
+      src: 'effect-ball.mp3',
+      id: 'effect-ball',
+    },
+    {
+      src: 'effect-click.wav',
+      id: 'effect-click',
+    },
+    {
+      src: 'effect-error.wav',
+      id: 'effect-error',
+    },
+    {
+      src: 'effect-meo-fail.ogg',
+      id: 'effect-meo-fail',
+    },
+    {
+      src: 'effect-meo-win.mp3',
+      id: 'effect-meo-win',
+    },
+    {
+      src: 'effect-move.wav',
+      id: 'effect-move',
+    },
+    {
+      src: 'effect-win.mp3',
+      id: 'effect-win',
     },
   ];
   sounds.forEach(({ id }) => {
