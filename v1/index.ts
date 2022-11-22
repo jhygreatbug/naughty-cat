@@ -420,6 +420,7 @@ class PageStages extends Page {
   handleExitClick: () => void;
   handleResetClick: () => void;
   handleStageSelected: () => void;
+  handleKeyup: (e: KeyboardEvent) => void;
   currentStage = 0;
   constructor() {
     super();
@@ -441,19 +442,30 @@ class PageStages extends Page {
     (stageSelect as any).selected = '0';
     (stageSelect as any).firstUpdated();
     stageSelect.addEventListener('selected', this.handleStageSelected = () => {
-      this.currentStage = (stageSelect as any).selected;
-      document.querySelector('#stages .some-words').innerHTML = stages[this.currentStage].someWords;
-      controller.start(stages[this.currentStage]);
+      this.loadStage((stageSelect as any).selected);
     });
 
-    controller.start(stages[0]);
-    document.querySelector('#stages .some-words').innerHTML = stages[0].someWords;
+    document.addEventListener('keyup', this.handleKeyup = e => {
+      if (e.key === 'r') {
+        this.loadStage(this.currentStage);
+      }
+    })
+
+    this.loadStage(0);
   }
 
   destroy() {
     document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
     document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
     document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
+    document.removeEventListener('keyup', this.handleKeyup);
+  }
+
+  loadStage(stageIndex: number) {
+    this.currentStage = stageIndex;
+    const stage = stages[stageIndex];
+    controller.start(stage);
+    document.querySelector('#stages .some-words').innerHTML = stage.someWords;
   }
 }
 

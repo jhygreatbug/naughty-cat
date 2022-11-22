@@ -379,18 +379,27 @@ var PageStages = /** @class */ (function (_super) {
         stageSelect.selected = '0';
         stageSelect.firstUpdated();
         stageSelect.addEventListener('selected', _this.handleStageSelected = function () {
-            _this.currentStage = stageSelect.selected;
-            document.querySelector('#stages .some-words').innerHTML = stages[_this.currentStage].someWords;
-            controller.start(stages[_this.currentStage]);
+            _this.loadStage(stageSelect.selected);
         });
-        controller.start(stages[0]);
-        document.querySelector('#stages .some-words').innerHTML = stages[0].someWords;
+        document.addEventListener('keyup', _this.handleKeyup = function (e) {
+            if (e.key === 'r') {
+                _this.loadStage(_this.currentStage);
+            }
+        });
+        _this.loadStage(0);
         return _this;
     }
     PageStages.prototype.destroy = function () {
         document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
         document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
         document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
+        document.removeEventListener('keyup', this.handleKeyup);
+    };
+    PageStages.prototype.loadStage = function (stageIndex) {
+        this.currentStage = stageIndex;
+        var stage = stages[stageIndex];
+        controller.start(stage);
+        document.querySelector('#stages .some-words').innerHTML = stage.someWords;
     };
     return PageStages;
 }(Page));
