@@ -6,7 +6,7 @@ const PARAMETERS = {
 enum Item {
   wall = '#',
   ground = '.',
-  space = 'x',
+  space = 'X',
   goal = 'G',
 
   cat = 'C',
@@ -581,7 +581,7 @@ const stages: StageConfig[] = [
     catCoord: [6, 1],
     path: [2,2,2,1,0,0,0,0],
   },
-]
+];
 
 const router = ((routeConfig: Record<string, typeof Page>) => {
   let currentPage: Page = null;

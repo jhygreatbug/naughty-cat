@@ -30,7 +30,7 @@ var Item;
 (function (Item) {
     Item["wall"] = "#";
     Item["ground"] = ".";
-    Item["space"] = "x";
+    Item["space"] = "X";
     Item["goal"] = "G";
     Item["cat"] = "C";
     Item["ball"] = "B";
