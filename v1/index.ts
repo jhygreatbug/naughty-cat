@@ -20,17 +20,46 @@ const getPathType = (num1: DirectionNumber, num2?: DirectionNumber) => {
   return flag.join('');
 }
 
-type Coordinate = [number, number];
-function coordEq(a: Coordinate, b: Coordinate) {
-  return a[0] === b[0] && a[1] === b[1];
-}
+type CoordinateData = [number, number];
+class Coordinate {
+  length = 2;
+  '0': number;
+  '1': number;
+  x: number;
+  y: number;
+  *[Symbol.iterator]() {
+    yield this.x;
+    yield this.y;
+  };
+  constructor([x, y]: CoordinateData) {
+    this.set([x, y]);
+  }
+  eq([x, y]: CoordinateData | Coordinate) {
+    return this.x === x && this.y === y;
+  }
+  set([x, y]: CoordinateData) {
+    this[0] = x;
+    this[1] = y;
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+  add([x, y]: CoordinateData) {
+    this.set([ this.x + x, this.y + y ]);
+    return this;
+  }
+  clone() {
+    return new Coordinate([this.x, this.y])
+  }
+};
+console.log([...new Coordinate([1, 2])]);
 
 const moveCode = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'] as const;
 type DirectionNumber = 0 | 1 | 2 | 3;
 const direction = ['up', 'right', 'down', 'left'] as const;
 type Direction = typeof direction[number];
 
-const moveOffset = [
+const moveOffset: CoordinateData[] = [
   [-1, 0],
   [0, 1],
   [1, 0],
@@ -114,16 +143,15 @@ class PathSet {
     const firstDirection = params.data[0];
     this.catPoint = {
       type: getPathType(firstDirection),
-      coord: [...params.catCoord],
+      coord: params.catCoord.clone(),
       nextDirection: firstDirection,
     };
 
     this.ballPoint = {
       type: getPathType(revertDirection(firstDirection)),
-      coord: [
-        params.catCoord[0] + moveOffset[firstDirection][0],
-        params.catCoord[1] + moveOffset[firstDirection][1],
-      ],
+      coord: params.catCoord
+        .clone()
+        .add(moveOffset[firstDirection]),
       prevDirection: revertDirection(firstDirection),
     };
 
@@ -132,7 +160,7 @@ class PathSet {
     }
   }
 
-  has(coord: Coordinate) {
+  has(coord: CoordinateData) {
     return this.flag[coord[0]][coord[1]];
   }
 
@@ -141,10 +169,9 @@ class PathSet {
 
     const newCatPoint: Path = {
       type: getPathType(directionNumber, directionNumber),
-      coord: [
-        this.catPoint.coord[0] + moveOffset[directionNumber][0],
-        this.catPoint.coord[1] + moveOffset[directionNumber][1],
-      ],
+      coord: this.catPoint.coord
+        .clone()
+        .add(moveOffset[directionNumber]),
       nextDirection: revertDirection(directionNumber),
     }
     this.catPoint.prevDirection = directionNumber;
@@ -159,10 +186,9 @@ class PathSet {
 
     const newBallPoint: Path = {
       type: getPathType(directionNumber, directionNumber),
-      coord: [
-        this.ballPoint.coord[0] + moveOffset[directionNumber][0],
-        this.ballPoint.coord[1] + moveOffset[directionNumber][1],
-      ],
+      coord: this.ballPoint.coord
+        .clone()
+        .add(moveOffset[directionNumber]),
       prevDirection: revertDirection(directionNumber),
     };
     this.ballPoint.nextDirection = directionNumber;
@@ -207,7 +233,7 @@ class Stage {
     for (let x = 0, height = mapData.length; x < height; x ++) {
       for (let y = 0, width = mapData[x].length; y < width; y ++) {
         const item = mapData[x][y];
-        const coord: Coordinate = [x, y];
+        const coord = new Coordinate([x, y]);
          if (item === Item['goal']) {
           this.goal = new Goal({ coord });
           mapData[x][y] = Item['ground'];
@@ -219,10 +245,10 @@ class Stage {
     this.path = new PathSet({
       width: this.map.width,
       height: this.map.height,
-      catCoord: params.config.catCoord,
+      catCoord: new Coordinate(params.config.catCoord),
       data: params.config.path,
     });
-    this.cat = new Cat({ coord: params.config.catCoord });
+    this.cat = new Cat({ coord: new Coordinate(params.config.catCoord) });
     this.ball = new Ball({ coord: this.path.ballPoint.coord });
 
     this.correct = correct;
@@ -295,10 +321,10 @@ class Stage {
       return;
     }
 
-    if (coordEq([tx, ty], this.ball.coord)) {
-      if (coordEq(this.goal.coord, this.ball.coord)) {
+    if (this.ball.coord.eq([tx, ty])) {
+      if (this.goal.coord.eq(this.ball.coord)) {
         this.stop = true;
-        this.cat.coord = [tx, ty];
+        this.cat.coord = new Coordinate([tx, ty]);
         this.cat.status = 'win';
         this.path.moveCat(directionNumber);
         Stage.draw(this);
@@ -317,7 +343,7 @@ class Stage {
           this.cat.status = 'shuai';
           this.stop = true;
         }
-        this.cat.coord = [tx, ty];
+        this.cat.coord = new Coordinate([tx, ty]);
         createjs.Sound.play('effect-move');
         this.path.moveCat(directionNumber);
       } else {
@@ -349,11 +375,11 @@ class Stage {
       return;
     }
 
-    if (coordEq(this.cat.coord, [tx, ty])) {
-      if (coordEq(this.goal.coord, [tx, ty]) && coordEq(this.goal.coord, this.cat.coord)) {
+    if (this.cat.coord.eq([tx, ty])) {
+      if (this.goal.coord.eq([tx, ty]) && this.goal.coord.eq(this.cat.coord)) {
         this.stop = true;
         this.cat.status = 'win';
-        this.ball.coord = [tx, ty];
+        this.ball.coord = new Coordinate([tx, ty]);
         this.path.moveBall(directionNumber);
         Stage.draw(this);
         createjs.Sound.play('effect-meo-win');
@@ -368,7 +394,7 @@ class Stage {
     const target = this.map.data[tx][ty];
 
     if (target === Item['space']) {
-      this.ball.coord = [tx, ty];
+      this.ball.coord = new Coordinate([tx, ty]);
       this.path.moveBall(directionNumber);
       this.stop = true;
       alert('毛线球掉进坑里，你失败了！点击reset再来一次吧');
@@ -376,7 +402,7 @@ class Stage {
     }
 
     if (target === Item['ground']) {
-      this.ball.coord = [tx, ty];
+      this.ball.coord = new Coordinate([tx, ty]);
       this.path.moveBall(directionNumber);
       this.ballTimer = setTimeout(() => {
         this.moveBall(directionNumber);
@@ -575,7 +601,7 @@ class PageStages extends Page {
 interface StageConfig {
   key: string;
   map: string;
-  catCoord: Coordinate;
+  catCoord: CoordinateData;
   someWords: string;
   path: DirectionNumber[];
 }
