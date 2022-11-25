@@ -184,10 +184,13 @@ class Stage {
   goal: Goal;
   path: PathSet;
   correct: boolean;
+  $target: HTMLElement;
   private stop = true;
   private ballTimer: ReturnType<typeof setTimeout>;
 
-  constructor(params: { config: StageConfig }) {
+  constructor(params: { config: StageConfig, $target: HTMLElement }) {
+    this.$target = params.$target
+
     const mapRows = params.config.map.trim().split('\n');
     const mapHeight = mapRows.length;
     const mapData = mapRows.map(row => row.trim().split(''));
@@ -234,17 +237,17 @@ class Stage {
   }
 
   private static draw(stage: Stage) {
-    const $stage = document.querySelector('#stages .stage') as HTMLElement;
+    const $stage = stage.$target;
     $stage.style.height = stage.map.height * PARAMETERS.blockSize + 'px';
     $stage.style.width = stage.map.width * PARAMETERS.blockSize + 'px';
 
-    const $scenes = document.querySelectorAll('#stages .scene') as NodeList;
+    const $scenes = stage.$target.querySelectorAll('.scene') as NodeList;
     $scenes.forEach(($scene: HTMLElement) => {
       $scene.style.gridTemplateColumns = `repeat(${stage.map.width}, 1fr)`;
       $scene.style.gridAutoRows = `minmax(calc(100%/${stage.map.height}), calc(100%/${stage.map.height}))`
     });
 
-    const $ground = document.querySelector('#stages .scene.ground') as HTMLElement;
+    const $ground = stage.$target.querySelector('.scene.ground') as HTMLElement;
     $ground.innerHTML = stage.map.data
       .map(
         (row, x) => row.map((i, y) => {
@@ -258,13 +261,13 @@ class Stage {
       )
       .join('\n');
 
-    const $path = document.querySelector('#stages .scene.path') as HTMLElement;
+    const $path = stage.$target.querySelector('.scene.path') as HTMLElement;
     $path.innerHTML = '';
     $path.innerHTML = stage.path.data
       .map(({ type, coord: [x, y] }) => `<div class="block i-path" data-status="${type}" style="grid-column: ${y + 1}; grid-row: ${x + 1};"></div>`)
       .join('\n');
 
-    const $element = document.querySelector('#stages .scene.elements') as HTMLElement;
+    const $element = stage.$target.querySelector('.scene.elements') as HTMLElement;
     $element.innerHTML = '';
     $element.innerHTML += `<div class="block i-goal" style="grid-row: ${stage.goal.coord[0] + 1}; grid-column: ${stage.goal.coord[1] + 1};"></div>`
     $element.innerHTML += `<div class="block i-ball" data-status="${stage.ball.status}" style="grid-row: ${stage.ball.coord[0] + 1}; grid-column: ${stage.ball.coord[1] + 1};"></div>`
@@ -282,6 +285,16 @@ class Stage {
     const [cx, cy] = this.cat.coord;
     const [tx, ty] = [cx + x, cy + y];
     const target = this.map.data[tx][ty];
+
+    if (
+      tx >= this.map.height
+      || tx < 0
+      || ty >= this.map.width
+      || ty < 0
+    ) {
+      return;
+    }
+
     if (coordEq([tx, ty], this.ball.coord)) {
       if (coordEq(this.goal.coord, this.ball.coord)) {
         this.stop = true;
@@ -326,6 +339,15 @@ class Stage {
     const [x, y] = moveOffset[directionNumber];
     const [bx, by] = this.ball.coord;
     const [tx, ty] = [bx + x, by + y];
+    
+    if (
+      tx >= this.map.height
+      || tx < 0
+      || ty >= this.map.width
+      || ty < 0
+    ) {
+      return;
+    }
 
     if (coordEq(this.cat.coord, [tx, ty])) {
       if (coordEq(this.goal.coord, [tx, ty]) && coordEq(this.goal.coord, this.cat.coord)) {
@@ -398,7 +420,10 @@ const controller = (() => {
       if (stage) {
         stage.destroy();
       }
-      stage = new Stage({ config: stageConfig });
+      stage = new Stage({
+        config: stageConfig,
+        $target: document.querySelector('#stages .stage')
+      });
       if (!stage.correct) {
         alert('地图错误！');
         return;
@@ -418,23 +443,64 @@ class Page {
 class PageHome extends Page {
   bgmId = 'bgm01-title';
   handleEnterClick: () => void;
+  handleResetClick: (e: KeyboardEvent) => void;
+  stage: Stage;
   constructor() {
     super();
     this.handleEnterClick = () => {
       createjs.Sound.play('effect-click');
       router.go('stages');
-    }
+    };
     document.querySelector('#home .enter').addEventListener('click', this.handleEnterClick);
+    document.addEventListener('keyup', this.handleResetClick = e => {
+      if (e.key === 'r') {
+        this.stage.destroy();
+        this.stage = this.getHomeStage();
+      }
+    });
 
     sound.getPromise(this.bgmId).then(() => {
       if (router.getCurrentPage() === this) {
         createjs.Sound.play(this.bgmId, { loop: -1 });
       }
-    })
+    });
+
+    this.stage = this.getHomeStage();
+
+    command.bind(this.stage);
+  }
+
+  getHomeStage() {
+    return new Stage({
+      config: {
+        key: 'home',
+        map: `
+          ................
+          ................
+          ................
+          ................
+          ................
+          ................
+          ................
+          ................
+          ..........G.....
+          ................
+          ................
+          ................
+          ................
+          ................
+        `,
+        catCoord: [2, 4],
+        someWords: 'just free play',
+        path: [3,3,3,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,3,3,3,3,3,3,3,3],
+      },
+      $target: document.querySelector('#home .stage')
+    });
   }
 
   destroy() {
     document.querySelector('#home .enter').removeEventListener('click', this.handleEnterClick);
+    document.removeEventListener('keyup', this.handleResetClick);
     createjs.Sound.stop(this.bgmId);
   }
 }

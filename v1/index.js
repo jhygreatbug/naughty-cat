@@ -151,6 +151,7 @@ var PathSet = /** @class */ (function () {
 var Stage = /** @class */ (function () {
     function Stage(params) {
         this.stop = true;
+        this.$target = params.$target;
         var mapRows = params.config.map.trim().split('\n');
         var mapHeight = mapRows.length;
         var mapData = mapRows.map(function (row) { return row.trim().split(''); });
@@ -191,15 +192,15 @@ var Stage = /** @class */ (function () {
         clearTimeout(this.ballTimer);
     };
     Stage.draw = function (stage) {
-        var $stage = document.querySelector('#stages .stage');
+        var $stage = stage.$target;
         $stage.style.height = stage.map.height * PARAMETERS.blockSize + 'px';
         $stage.style.width = stage.map.width * PARAMETERS.blockSize + 'px';
-        var $scenes = document.querySelectorAll('#stages .scene');
+        var $scenes = stage.$target.querySelectorAll('.scene');
         $scenes.forEach(function ($scene) {
             $scene.style.gridTemplateColumns = "repeat(".concat(stage.map.width, ", 1fr)");
             $scene.style.gridAutoRows = "minmax(calc(100%/".concat(stage.map.height, "), calc(100%/").concat(stage.map.height, "))");
         });
-        var $ground = document.querySelector('#stages .scene.ground');
+        var $ground = stage.$target.querySelector('.scene.ground');
         $ground.innerHTML = stage.map.data
             .map(function (row, x) { return row.map(function (i, y) {
             var itemName = (function () {
@@ -212,7 +213,7 @@ var Stage = /** @class */ (function () {
             return "<div class=\"block i-".concat(itemName, "\" style=\"grid-row: ").concat(x + 1, "; grid-column: ").concat(y + 1, "\"></div>");
         }).join('\n'); })
             .join('\n');
-        var $path = document.querySelector('#stages .scene.path');
+        var $path = stage.$target.querySelector('.scene.path');
         $path.innerHTML = '';
         $path.innerHTML = stage.path.data
             .map(function (_a) {
@@ -220,7 +221,7 @@ var Stage = /** @class */ (function () {
             return "<div class=\"block i-path\" data-status=\"".concat(type, "\" style=\"grid-column: ").concat(y + 1, "; grid-row: ").concat(x + 1, ";\"></div>");
         })
             .join('\n');
-        var $element = document.querySelector('#stages .scene.elements');
+        var $element = stage.$target.querySelector('.scene.elements');
         $element.innerHTML = '';
         $element.innerHTML += "<div class=\"block i-goal\" style=\"grid-row: ".concat(stage.goal.coord[0] + 1, "; grid-column: ").concat(stage.goal.coord[1] + 1, ";\"></div>");
         $element.innerHTML += "<div class=\"block i-ball\" data-status=\"".concat(stage.ball.status, "\" style=\"grid-row: ").concat(stage.ball.coord[0] + 1, "; grid-column: ").concat(stage.ball.coord[1] + 1, ";\"></div>");
@@ -235,6 +236,12 @@ var Stage = /** @class */ (function () {
         var _b = this.cat.coord, cx = _b[0], cy = _b[1];
         var _c = [cx + x, cy + y], tx = _c[0], ty = _c[1];
         var target = this.map.data[tx][ty];
+        if (tx >= this.map.height
+            || tx < 0
+            || ty >= this.map.width
+            || ty < 0) {
+            return;
+        }
         if (coordEq([tx, ty], this.ball.coord)) {
             if (coordEq(this.goal.coord, this.ball.coord)) {
                 this.stop = true;
@@ -278,6 +285,12 @@ var Stage = /** @class */ (function () {
         var _a = moveOffset[directionNumber], x = _a[0], y = _a[1];
         var _b = this.ball.coord, bx = _b[0], by = _b[1];
         var _c = [bx + x, by + y], tx = _c[0], ty = _c[1];
+        if (tx >= this.map.height
+            || tx < 0
+            || ty >= this.map.width
+            || ty < 0) {
+            return;
+        }
         if (coordEq(this.cat.coord, [tx, ty])) {
             if (coordEq(this.goal.coord, [tx, ty]) && coordEq(this.goal.coord, this.cat.coord)) {
                 this.stop = true;
@@ -342,7 +355,10 @@ var controller = (function () {
             if (stage) {
                 stage.destroy();
             }
-            stage = new Stage({ config: stageConfig });
+            stage = new Stage({
+                config: stageConfig,
+                $target: document.querySelector('#stages .stage')
+            });
             if (!stage.correct) {
                 alert('地图错误！');
                 return;
@@ -368,15 +384,36 @@ var PageHome = /** @class */ (function (_super) {
             router.go('stages');
         };
         document.querySelector('#home .enter').addEventListener('click', _this.handleEnterClick);
+        document.addEventListener('keyup', _this.handleResetClick = function (e) {
+            if (e.key === 'r') {
+                _this.stage.destroy();
+                _this.stage = _this.getHomeStage();
+            }
+        });
         sound.getPromise(_this.bgmId).then(function () {
             if (router.getCurrentPage() === _this) {
                 createjs.Sound.play(_this.bgmId, { loop: -1 });
             }
         });
+        _this.stage = _this.getHomeStage();
+        command.bind(_this.stage);
         return _this;
     }
+    PageHome.prototype.getHomeStage = function () {
+        return new Stage({
+            config: {
+                key: 'home',
+                map: "\n          ................\n          ................\n          ................\n          ................\n          ................\n          ................\n          ................\n          ................\n          ..........G.....\n          ................\n          ................\n          ................\n          ................\n          ................\n        ",
+                catCoord: [2, 4],
+                someWords: 'just free play',
+                path: [3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3]
+            },
+            $target: document.querySelector('#home .stage')
+        });
+    };
     PageHome.prototype.destroy = function () {
         document.querySelector('#home .enter').removeEventListener('click', this.handleEnterClick);
+        document.removeEventListener('keyup', this.handleResetClick);
         createjs.Sound.stop(this.bgmId);
     };
     return PageHome;

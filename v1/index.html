@@ -7,11 +7,15 @@
   <title>Document</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preload" href="https://fonts.gstatic.com/s/gloriahallelujah/v17/LYjYdHv3kUk9BMV96EIswT9DIbW-MIS11zOmvVCE.woff2">
-  <script type="module" src="../dist/wired-elements.js"></script>
 </head>
 <body>
   <main id="home" style="display: none">
     <div class="wrap">
+      <div class="stage">
+        <div class="scene ground"></div>
+        <div class="scene path"></div>
+        <div class="scene elements"></div>
+      </div>
       <h1>Naughty Cat</h1>
       <div class="home-options">
         <wired-button class="home-option enter">Enter Game</wired-button>
@@ -37,6 +41,7 @@
     </div>
   </main>
   <script src="https://code.createjs.com/1.0.0/soundjs.min.js"></script>
+  <script type="module" src="../dist/wired-elements.js"></script>
   <script src="./index.js"></script>
 </body>
 </html>
