@@ -52,7 +52,6 @@ class Coordinate {
     return new Coordinate([this.x, this.y])
   }
 };
-console.log([...new Coordinate([1, 2])]);
 
 const moveCode = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'] as const;
 type DirectionNumber = 0 | 1 | 2 | 3;
@@ -482,6 +481,7 @@ class PageHome extends Page {
       if (e.key === 'r') {
         this.stage.destroy();
         this.stage = this.getHomeStage();
+        command.bind(this.stage);
       }
     });
 
@@ -492,7 +492,6 @@ class PageHome extends Page {
     });
 
     this.stage = this.getHomeStage();
-
     command.bind(this.stage);
   }
 
@@ -679,18 +678,18 @@ const stages: StageConfig[] = [
     catCoord: [6, 1],
     path: [2,2,2,1,0,0,0,0],
   },
-  {
-    key: '5',
-    map: `
-      #########
-      #....G..#
-      #.......#
-      #########
-    `,
-    someWords: 'Try to find the shortest route',
-    catCoord: [1, 1],
-    path: [1],
-  },
+  // {
+  //   key: '5',
+  //   map: `
+  //     #########
+  //     #....G..#
+  //     #.......#
+  //     #########
+  //   `,
+  //   someWords: 'Try to find the shortest route',
+  //   catCoord: [1, 1],
+  //   path: [1],
+  // },
   {
     key: '6',
     map: `
@@ -709,6 +708,66 @@ const stages: StageConfig[] = [
     someWords: 'Be careful not to fall into the pit. Test your speed, again',
     catCoord: [6, 1],
     path: [2,2,2,1,0,0,0,0],
+  },
+  // {
+  //   key: '8',
+  //   map: `
+  //     #############
+  //     #.#.........#
+  //     #...........#
+  //     #.#.........#
+  //     #.#.........#
+  //     #.#.........#
+  //     #........#..#
+  //     #...........#
+  //     #........#..#
+  //     #...........#
+  //     ###G#########
+  //     ..###........
+  //   `,
+  //   someWords: '',
+  //   catCoord: [2, 11],
+  //   path: [3],
+  // },
+  {
+    key: '7',
+    map: `
+      ############
+      #..........#
+      #..#.......#
+      #..........#
+      #.#........#
+      #.#........#
+      #.#........#
+      #.......X..#
+      #..........#
+      ###G########
+      ..###.......
+    `,
+    someWords: '',
+    catCoord: [2, 10],
+    path: [3],
+  },
+  {
+    key: '9',
+    map: `
+      ###############
+      #.............#
+      #.............#
+      #....##.##....#
+      #....##.##....#
+      #.#....G......#
+      #...#######...#
+      #...#######...#
+      #.............#
+      #..X..........#
+      #.............#
+      ###############
+      .####.......
+    `,
+    someWords: '',
+    catCoord: [5, 9],
+    path: [3],
   },
 ];
 

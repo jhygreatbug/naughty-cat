@@ -6,7 +6,8 @@
   "author": "jhygreatbug <jhygreatbug@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "build-wired-elements": "yarn run webpack --entry ./lib/wired-elements.js && mv dist/main.js dist/wired-elements.js && rm dist/main.js.LICENSE.txt"
+    "build-wired-elements": "yarn run webpack --entry ./lib/wired-elements.js && mv dist/main.js dist/wired-elements.js && rm dist/main.js.LICENSE.txt",
+    "dev": "yarn run tsc --build v1/tsconfig.json --watch"
   },
   "resolutions": {
     "roughjs": "4.4"
