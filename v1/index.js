@@ -141,6 +141,7 @@ class Stage {
     constructor(params) {
         this.stop = true;
         this.$target = params.$target;
+        this.on = Object.assign({}, params.on);
         const mapRows = params.config.map.trim().split('\n');
         const mapHeight = mapRows.length;
         const mapData = mapRows.map(row => row.trim().split(''));
@@ -238,7 +239,8 @@ class Stage {
                 createjs.Sound.play('effect-meo-win');
                 createjs.Sound.play('effect-win');
                 setTimeout(() => {
-                    alert('耶！你赢了✌️');
+                    var _a, _b;
+                    (_b = (_a = this.on) === null || _a === void 0 ? void 0 : _a.win) === null || _b === void 0 ? void 0 : _b.call(_a);
                 }, 100);
                 return;
             }
@@ -286,7 +288,8 @@ class Stage {
                 createjs.Sound.play('effect-meo-win');
                 createjs.Sound.play('effect-win');
                 setTimeout(() => {
-                    alert('耶！你赢了✌️');
+                    var _a, _b;
+                    (_b = (_a = this.on) === null || _a === void 0 ? void 0 : _a.win) === null || _b === void 0 ? void 0 : _b.call(_a);
                 }, 100);
             }
             return;
@@ -334,22 +337,30 @@ const command = (() => {
 })();
 const controller = (() => {
     let stage;
-    return {
-        start(stageConfig) {
+    let lastParams;
+    const operate = {
+        start(params) {
+            lastParams = params;
             if (stage) {
                 stage.destroy();
             }
             stage = new Stage({
-                config: stageConfig,
-                $target: document.querySelector('#stages .stage')
+                config: params.config,
+                $target: document.querySelector('#stages .stage'),
+                on: params.on,
             });
             if (!stage.correct) {
                 alert('地图错误！');
                 return;
             }
             command.bind(stage);
-        }
+            return { stage };
+        },
+        reset() {
+            operate.start(lastParams);
+        },
     };
+    return operate;
 })();
 class Page {
     constructor() {
@@ -414,6 +425,34 @@ class PageHome extends Page {
         createjs.Sound.stop(this.bgmId);
     }
 }
+class StageSelect {
+    constructor(params) {
+        const stageSelect = document.querySelector('#stages .stage-select');
+        const $ = stageSelect;
+        this.$ = stageSelect;
+        $.innerHTML = stages
+            .map((v, i) => `<wired-item value="${i}">Level ${i + 1}</wired-item>`)
+            .join('\n');
+        $.selected = '0';
+        $.firstUpdated();
+        $.addEventListener('selected', this.handleStageSelected = () => {
+            var _a, _b;
+            createjs.Sound.play('effect-click');
+            (_b = (_a = params.on) === null || _a === void 0 ? void 0 : _a.selected) === null || _b === void 0 ? void 0 : _b.call(_a, $.selected);
+        });
+        $.addEventListener('click', this.handleStageClick = () => {
+            createjs.Sound.play('effect-click');
+        });
+    }
+    select(value) {
+        this.$.selected = `${value}`;
+        this.$.firstUpdated();
+    }
+    destroy() {
+        document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
+        document.querySelector('#stages .stage-select').removeEventListener('click', this.handleStageClick);
+    }
+}
 class PageStages extends Page {
     constructor() {
         super();
@@ -425,20 +464,14 @@ class PageStages extends Page {
         });
         document.querySelector('#stages .reset').addEventListener('click', this.handleResetClick = () => {
             createjs.Sound.play('effect-click');
-            controller.start(stages[this.currentStage]);
+            controller.reset();
         });
-        const stageSelect = document.querySelector('#stages .stage-select');
-        stageSelect.innerHTML = stages
-            .map((v, i) => `<wired-item value="${i}">Level ${i + 1}</wired-item>`)
-            .join('\n');
-        stageSelect.selected = '0';
-        stageSelect.firstUpdated();
-        stageSelect.addEventListener('selected', this.handleStageSelected = () => {
-            createjs.Sound.play('effect-click');
-            this.loadStage(stageSelect.selected);
-        });
-        stageSelect.addEventListener('click', this.handleStageClick = () => {
-            createjs.Sound.play('effect-click');
+        this.stageSelect = new StageSelect({
+            on: {
+                selected: value => {
+                    this.loadStage(parseInt(value, 10));
+                }
+            }
         });
         document.addEventListener('keyup', this.handleKeyup = e => {
             if (e.key === 'r') {
@@ -456,16 +489,39 @@ class PageStages extends Page {
     destroy() {
         document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
         document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
-        document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
-        document.querySelector('#stages .stage-select').removeEventListener('click', this.handleStageClick);
         document.removeEventListener('keyup', this.handleKeyup);
         createjs.Sound.stop(this.bgmId);
     }
+    isLastStage(stageIndex = this.currentStage) {
+        return stageIndex + 1 > stages.length;
+    }
     loadStage(stageIndex) {
+        if (this.isLastStage()) {
+            return;
+        }
         this.currentStage = stageIndex;
+        this.stageSelect.select(stageIndex);
         const stage = stages[stageIndex];
-        controller.start(stage);
+        controller.start({
+            config: stage,
+            on: {
+                win: () => {
+                    const goNext = confirm('耶！你赢了✌️\n要玩下一关吗？');
+                    if (goNext) {
+                        if (this.isLastStage()) {
+                            alert('已经是最后一关了，感谢您的游玩^_^');
+                        }
+                        else {
+                            this.loadNextStage();
+                        }
+                    }
+                }
+            }
+        });
         document.querySelector('#stages .some-words').innerHTML = stage.someWords;
+    }
+    loadNextStage() {
+        this.loadStage(this.currentStage + 1);
     }
 }
 const stages = [

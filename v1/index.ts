@@ -45,7 +45,7 @@ class Coordinate {
     return this;
   }
   add([x, y]: CoordinateData) {
-    this.set([ this.x + x, this.y + y ]);
+    this.set([this.x + x, this.y + y]);
     return this;
   }
   clone() {
@@ -154,7 +154,7 @@ class PathSet {
       prevDirection: revertDirection(firstDirection),
     };
 
-    for (let i = 1; i < params.data.length; i ++) {
+    for (let i = 1; i < params.data.length; i++) {
       this.moveBall(params.data[i], true);
     }
   }
@@ -210,11 +210,13 @@ class Stage {
   path: PathSet;
   correct: boolean;
   $target: HTMLElement;
+  on: { [key: string]: () => void };
   private stop = true;
   private ballTimer: ReturnType<typeof setTimeout>;
 
-  constructor(params: { config: StageConfig, $target: HTMLElement }) {
-    this.$target = params.$target
+  constructor(params: { config: StageConfig, $target: HTMLElement, on?: { win?: () => void } }) {
+    this.$target = params.$target;
+    this.on = { ...params.on };
 
     const mapRows = params.config.map.trim().split('\n');
     const mapHeight = mapRows.length;
@@ -229,11 +231,11 @@ class Stage {
     let correct = true;
 
     // 读取地图信息
-    for (let x = 0, height = mapData.length; x < height; x ++) {
-      for (let y = 0, width = mapData[x].length; y < width; y ++) {
+    for (let x = 0, height = mapData.length; x < height; x++) {
+      for (let y = 0, width = mapData[x].length; y < width; y++) {
         const item = mapData[x][y];
         const coord = new Coordinate([x, y]);
-         if (item === Item['goal']) {
+        if (item === Item['goal']) {
           this.goal = new Goal({ coord });
           mapData[x][y] = Item['ground'];
         }
@@ -330,7 +332,7 @@ class Stage {
         createjs.Sound.play('effect-meo-win');
         createjs.Sound.play('effect-win');
         setTimeout(() => {
-          alert('耶！你赢了✌️');
+          this.on?.win?.();
         }, 100);
         return;
       }
@@ -364,7 +366,7 @@ class Stage {
     const [x, y] = moveOffset[directionNumber];
     const [bx, by] = this.ball.coord;
     const [tx, ty] = [bx + x, by + y];
-    
+
     if (
       tx >= this.map.height
       || tx < 0
@@ -384,7 +386,7 @@ class Stage {
         createjs.Sound.play('effect-meo-win');
         createjs.Sound.play('effect-win');
         setTimeout(() => {
-          alert('耶！你赢了✌️');
+          this.on?.win?.();
         }, 100)
       }
       return;
@@ -437,25 +439,33 @@ const command = (() => {
   }
 })()
 
-
+type ControllerStartParams = Omit<ConstructorParameters<typeof Stage>[0], '$target'>;
 const controller = (() => {
-  let stage: Stage
-  return {
-    start(stageConfig: StageConfig) {
+  let stage: Stage;
+  let lastParams: ControllerStartParams;
+  const operate = {
+    start(params: ControllerStartParams) {
+      lastParams = params;
       if (stage) {
         stage.destroy();
       }
       stage = new Stage({
-        config: stageConfig,
-        $target: document.querySelector('#stages .stage')
+        config: params.config,
+        $target: document.querySelector('#stages .stage'),
+        on: params.on,
       });
       if (!stage.correct) {
         alert('地图错误！');
         return;
       }
       command.bind(stage);
-    }
+      return { stage }
+    },
+    reset() {
+      operate.start(lastParams);
+    },
   }
+  return operate;
 })()
 
 class Page {
@@ -517,7 +527,7 @@ class PageHome extends Page {
         `,
         catCoord: [2, 4],
         someWords: 'just free play',
-        path: [3,3,3,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,3,3,3,3,3,3,3,3],
+        path: [3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3],
       },
       $target: document.querySelector('#home .stage')
     });
@@ -530,12 +540,48 @@ class PageHome extends Page {
   }
 }
 
-class PageStages extends Page {
-  bgmId = 'bgm02-stage';
-  handleExitClick: () => void;
-  handleResetClick: () => void;
+class StageSelect {
   handleStageSelected: () => void;
   handleStageClick: () => void;
+  $: HTMLElement;
+  constructor(params: {
+    on?: {
+      selected?: (selectedValue: string) => void
+    }
+  }) {
+    const stageSelect = document.querySelector('#stages .stage-select') as HTMLSelectElement;
+    const $ = stageSelect;
+    this.$ = stageSelect
+    $.innerHTML = stages
+      .map((v, i) => `<wired-item value="${i}">Level ${i + 1}</wired-item>`)
+      .join('\n');
+    ($ as any).selected = '0';
+    ($ as any).firstUpdated();
+    $.addEventListener('selected', this.handleStageSelected = () => {
+      createjs.Sound.play('effect-click');
+      params.on?.selected?.(($ as any).selected);
+    });
+    $.addEventListener('click', this.handleStageClick = () => {
+      createjs.Sound.play('effect-click');
+    });
+  }
+
+  select(value: number) {
+    (this.$ as any).selected = `${value}`;
+    (this.$ as any).firstUpdated();
+  }
+
+  destroy() {
+    document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
+    document.querySelector('#stages .stage-select').removeEventListener('click', this.handleStageClick);
+  }
+}
+
+class PageStages extends Page {
+  bgmId = 'bgm02-stage';
+  stageSelect: StageSelect;
+  handleExitClick: () => void;
+  handleResetClick: () => void;
   handleKeyup: (e: KeyboardEvent) => void;
   currentStage = 0;
   constructor() {
@@ -547,22 +593,16 @@ class PageStages extends Page {
     });
     document.querySelector('#stages .reset').addEventListener('click', this.handleResetClick = () => {
       createjs.Sound.play('effect-click');
-      controller.start(stages[this.currentStage]);
+      controller.reset();
     });
 
-    const stageSelect = document.querySelector('#stages .stage-select') as HTMLSelectElement;
-    stageSelect.innerHTML = stages
-      .map((v, i) => `<wired-item value="${i}">Level ${i + 1}</wired-item>`)
-      .join('\n');
-    (stageSelect as any).selected = '0';
-    (stageSelect as any).firstUpdated();
-    stageSelect.addEventListener('selected', this.handleStageSelected = () => {
-      createjs.Sound.play('effect-click');
-      this.loadStage((stageSelect as any).selected);
-    });
-    stageSelect.addEventListener('click', this.handleStageClick = () => {
-      createjs.Sound.play('effect-click');
-    });
+    this.stageSelect = new StageSelect({
+      on: {
+        selected: value => {
+          this.loadStage(parseInt(value, 10));
+        }
+      }
+    })
 
     document.addEventListener('keyup', this.handleKeyup = e => {
       if (e.key === 'r') {
@@ -583,17 +623,41 @@ class PageStages extends Page {
   destroy() {
     document.querySelector('#stages .exit').removeEventListener('click', this.handleExitClick);
     document.querySelector('#stages .reset').removeEventListener('click', this.handleResetClick);
-    document.querySelector('#stages .stage-select').removeEventListener('selected', this.handleStageSelected);
-    document.querySelector('#stages .stage-select').removeEventListener('click', this.handleStageClick);
     document.removeEventListener('keyup', this.handleKeyup);
     createjs.Sound.stop(this.bgmId);
   }
 
+  isLastStage(stageIndex: number = this.currentStage) {
+    return stageIndex + 1 > stages.length;
+  }
+
   loadStage(stageIndex: number) {
+    if (this.isLastStage()) {
+      return;
+    }
     this.currentStage = stageIndex;
+    this.stageSelect.select(stageIndex);
     const stage = stages[stageIndex];
-    controller.start(stage);
+    controller.start({
+      config: stage,
+      on: {
+        win: () => {
+          const goNext = confirm('耶！你赢了✌️\n要玩下一关吗？');
+          if (goNext) {
+            if (this.isLastStage()) {
+              alert('已经是最后一关了，感谢您的游玩^_^');
+            } else {
+              this.loadNextStage();
+            }
+          }
+        }
+      }
+    });
     document.querySelector('#stages .some-words').innerHTML = stage.someWords;
+  }
+
+  loadNextStage() {
+    this.loadStage(this.currentStage + 1);
   }
 }
 
@@ -621,7 +685,7 @@ const stages: StageConfig[] = [
     `,
     someWords: 'Don\'t touch the line, get to where the ball is',
     catCoord: [2, 7],
-    path: [0,3,3,2,2,1,2,2,3,3,2,2,1,1,1,0,0,0,3,3,3,3,2,2,2,3,0,0,0,0,0,1],
+    path: [0, 3, 3, 2, 2, 1, 2, 2, 3, 3, 2, 2, 1, 1, 1, 0, 0, 0, 3, 3, 3, 3, 2, 2, 2, 3, 0, 0, 0, 0, 0, 1],
 
   },
   {
@@ -676,7 +740,7 @@ const stages: StageConfig[] = [
     `,
     someWords: 'Test your speed',
     catCoord: [6, 1],
-    path: [2,2,2,1,0,0,0,0],
+    path: [2, 2, 2, 1, 0, 0, 0, 0],
   },
   // {
   //   key: '5',
@@ -707,7 +771,7 @@ const stages: StageConfig[] = [
     `,
     someWords: 'Be careful not to fall into the pit. Test your speed, again',
     catCoord: [6, 1],
-    path: [2,2,2,1,0,0,0,0],
+    path: [2, 2, 2, 1, 0, 0, 0, 0],
   },
   // {
   //   key: '8',
@@ -839,7 +903,7 @@ const sound = (() => {
   sounds.forEach(({ id }) => {
     promises[id] = new Promise(resolve => {
       resolves[id] = resolve;
-      resolveCount ++;
+      resolveCount++;
     });
   })
   createjs.Sound.registerSounds(sounds, 'https://jhygreatbug.github.io/naughty-cat/assets/sound/');
